@@ -47,7 +47,7 @@ const SignIn = () => {
         login(data);
         console.log(data);
         toast.success("Login successful");
-        navigate("/dashboard");
+        navigate("/workspaces");
       },
       onError: (error: any) => {
         const errorMessage =

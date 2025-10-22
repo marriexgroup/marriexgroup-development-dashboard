@@ -27,11 +27,11 @@ export const SidebarComponent = ({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems = [
-    {
-      title: "Dashboard",
-      href: "/dashboard",
-      icon: LayoutDashboard,
-    },
+    // {
+    //   title: "Dashboard",
+    //   href: "/dashboard",
+    //   icon: LayoutDashboard,
+    // },
     {
       title: "Workspaces",
       href: "/workspaces",
