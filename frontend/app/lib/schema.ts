@@ -62,6 +62,7 @@ export const createTaskSchema = z.object({
   priority: z.enum(["Low", "Medium", "High"]),
   dueDate: z.string().min(1, "Due date is required"),
   assignees: z.array(z.string()).min(1, "At least one assignee is required"),
+  images: z.array(z.instanceof(File)).optional(),
 });
 
 export const inviteMemberSchema = z.object({

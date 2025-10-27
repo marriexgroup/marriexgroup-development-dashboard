@@ -7,8 +7,40 @@ export const useCreateTaskMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { projectId: string; taskData: CreateTaskFormData }) =>
-      postData(`/tasks/${data.projectId}/create-task`, data.taskData),
+    mutationFn: (data: { projectId: string; taskData: CreateTaskFormData }) => {
+      const formData = new FormData();
+      
+      // Add all form fields except images
+      formData.append('title', data.taskData.title);
+      formData.append('description', data.taskData.description || '');
+      formData.append('status', data.taskData.status);
+      formData.append('priority', data.taskData.priority);
+      formData.append('dueDate', data.taskData.dueDate);
+      formData.append('assignees', JSON.stringify(data.taskData.assignees));
+      
+      // Add images if they exist
+      if (data.taskData.images && data.taskData.images.length > 0) {
+        data.taskData.images.forEach((image, index) => {
+          formData.append('images', image);
+        });
+      }
+      
+      const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api-v1";
+      const token = localStorage.getItem("token");
+      
+      return fetch(`${BASE_URL}/tasks/${data.projectId}/create-task`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }).then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to create task');
+        }
+        return res.json();
+      });
+    },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({
         queryKey: ["project", data.project],

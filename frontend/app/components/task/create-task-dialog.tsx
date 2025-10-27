@@ -10,10 +10,11 @@ import { createTaskSchema } from "@/lib/schema";
 import type { ProjectMemberRole, User } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Upload, X, Image as ImageIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import type { z } from "zod";
+import { useState, useRef } from "react";
 import { Button } from "../ui/button";
 import { Calendar } from "../ui/calendar";
 import { Checkbox } from "../ui/checkbox";
@@ -51,6 +52,11 @@ export const CreateTaskDialog = ({
   projectId,
   projectMembers,
 }: CreateTaskDialogProps) => {
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const form = useForm<CreateTaskFormData>({
     resolver: zodResolver(createTaskSchema),
     defaultValues: {
@@ -60,10 +66,81 @@ export const CreateTaskDialog = ({
       priority: "Medium",
       dueDate: "",
       assignees: [],
+      images: [],
     },
   });
 
   const { mutate, isPending } = useCreateTaskMutation();
+
+  const processFiles = (files: FileList | File[]) => {
+    const newImages: File[] = [];
+    const newPreviews: string[] = [];
+
+    Array.from(files).forEach((file) => {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not a valid image file`);
+        return;
+      }
+
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} is too large. Maximum size is 5MB`);
+        return;
+      }
+
+      newImages.push(file);
+      const preview = URL.createObjectURL(file);
+      newPreviews.push(preview);
+    });
+
+    if (newImages.length > 0) {
+      const updatedImages = [...selectedImages, ...newImages];
+      const updatedPreviews = [...imagePreviews, ...newPreviews];
+      
+      setSelectedImages(updatedImages);
+      setImagePreviews(updatedPreviews);
+      form.setValue('images', updatedImages);
+    }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+    processFiles(files);
+  };
+
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+      processFiles(files);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    const updatedImages = selectedImages.filter((_, i) => i !== index);
+    const updatedPreviews = imagePreviews.filter((_, i) => i !== index);
+    
+    // Revoke the object URL to free memory
+    URL.revokeObjectURL(imagePreviews[index]);
+    
+    setSelectedImages(updatedImages);
+    setImagePreviews(updatedPreviews);
+    form.setValue('images', updatedImages);
+  };
 
   const onSubmit = (values: CreateTaskFormData) => {
     mutate(
@@ -75,6 +152,10 @@ export const CreateTaskDialog = ({
         onSuccess: () => {
           toast.success("Task created successfully");
           form.reset();
+          setSelectedImages([]);
+          setImagePreviews([]);
+          // Clean up object URLs
+          imagePreviews.forEach(url => URL.revokeObjectURL(url));
           onOpenChange(false);
         },
         onError: (error: any) => {
@@ -88,15 +169,16 @@ export const CreateTaskDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Task</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 py-2">
+              {/* Left Column - Main Form Fields */}
+              <div className="lg:col-span-2 space-y-4">
                 <FormField
                   control={form.control}
                   name="title"
@@ -110,6 +192,7 @@ export const CreateTaskDialog = ({
                     </FormItem>
                   )}
                 />
+                
                 <FormField
                   control={form.control}
                   name="description"
@@ -120,6 +203,7 @@ export const CreateTaskDialog = ({
                         <Textarea
                           {...field}
                           placeholder="Enter task description"
+                          rows={3}
                         />
                       </FormControl>
                       <FormMessage />
@@ -321,6 +405,67 @@ export const CreateTaskDialog = ({
                     );
                   }}
                 />
+              </div>
+
+              {/* Right Column - Image Upload Section */}
+              <div className="lg:col-span-1">
+                <div className="space-y-3">
+                  <label className="text-sm font-medium">Images</label>
+                  
+                  {/* Upload Button */}
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors cursor-pointer ${
+                      isDragOver
+                        ? 'border-blue-400 bg-blue-50'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <ImageIcon className={`mx-auto h-8 w-8 ${isDragOver ? 'text-blue-400' : 'text-gray-400'}`} />
+                    <p className={`mt-2 text-xs ${isDragOver ? 'text-blue-600' : 'text-gray-600'}`}>
+                      {isDragOver ? 'Drop images here' : 'Upload images'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Max 5MB each
+                    </p>
+                  </div>
+
+                  {/* Image Previews */}
+                  {imagePreviews.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-500">Uploaded images:</p>
+                      <div className="grid grid-cols-1 gap-2">
+                        {imagePreviews.map((preview, index) => (
+                          <div key={index} className="relative group">
+                            <img
+                              src={preview}
+                              alt={`Preview ${index + 1}`}
+                              className="w-full h-20 object-cover rounded border"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="h-2 w-2" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

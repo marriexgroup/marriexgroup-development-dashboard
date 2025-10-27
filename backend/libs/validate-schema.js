@@ -69,7 +69,17 @@ const taskSchema = z.object({
   status: z.enum(["To Do", "In Progress", "Done"]),
   priority: z.enum(["Low", "Medium", "High"]),
   dueDate: z.string().min(1, "Due date is required"),
-  assignees: z.array(z.string()).min(1, "At least one assignee is required"),
+  assignees: z.string().min(1, "At least one assignee is required"), // Will be parsed as JSON string
+});
+
+// Custom schema for task creation with file uploads (FormData)
+const taskCreateWithFilesSchema = z.object({
+  title: z.string().min(1, "Task title is required"),
+  description: z.string().optional(),
+  status: z.enum(["To Do", "In Progress", "Done"]),
+  priority: z.enum(["Low", "Medium", "High"]),
+  dueDate: z.string().min(1, "Due date is required"),
+  assignees: z.string().min(1, "At least one assignee is required"), // JSON string from FormData
 });
 
 export {
@@ -81,6 +91,7 @@ export {
   workspaceSchema,
   projectSchema,
   taskSchema,
+  taskCreateWithFilesSchema,
   inviteMemberSchema,
   tokenSchema,
 };

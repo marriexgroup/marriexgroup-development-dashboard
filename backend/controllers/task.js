@@ -1,4 +1,5 @@
 import { recordActivity } from "../libs/index.js";
+import { uploadMultipleImages, uploadMultipleImagesWithPartialSuccess } from "../libs/s3-upload.js";
 import ActivityLog from "../models/activity.js";
 import Comment from "../models/comment.js";
 import Project from "../models/project.js";
@@ -8,8 +9,41 @@ import Workspace from "../models/workspace.js";
 const createTask = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const { title, description, status, priority, dueDate, assignees } =
+    const { title, description, status, priority, dueDate, assignees: assigneesString } =
       req.body;
+
+    console.log('Request body:', req.body);
+    console.log('Request files:', req.files);
+    console.log('Assignees string:', assigneesString);
+    console.log('Type of assignees:', typeof assigneesString);
+
+    // Parse assignees from JSON string if it's a string
+    let assignees;
+    try {
+      assignees = typeof assigneesString === 'string' 
+        ? JSON.parse(assigneesString) 
+        : assigneesString;
+      console.log('Parsed assignees:', assignees);
+      
+      // Validate that assignees is an array
+      if (!Array.isArray(assignees)) {
+        return res.status(400).json({
+          message: "Assignees must be an array",
+        });
+      }
+      
+      // Validate that assignees array is not empty
+      if (assignees.length === 0) {
+        return res.status(400).json({
+          message: "At least one assignee is required",
+        });
+      }
+    } catch (parseError) {
+      console.error('Error parsing assignees:', parseError);
+      return res.status(400).json({
+        message: "Invalid assignees format",
+      });
+    }
 
     const project = await Project.findById(projectId);
 
@@ -37,6 +71,48 @@ const createTask = async (req, res) => {
       });
     }
 
+    // Handle image uploads if files are present
+    let uploadedImages = [];
+    if (req.files && req.files.length > 0) {
+      try {
+        console.log(`Processing ${req.files.length} image uploads...`);
+        
+        // Use sequential upload with partial success allowed
+        const uploadResult = await uploadMultipleImagesWithPartialSuccess(req.files, true);
+        
+        if (uploadResult.successCount === 0) {
+          return res.status(500).json({
+            message: "Failed to upload any images",
+            details: uploadResult.failed
+          });
+        }
+        
+        // Process successful uploads
+        uploadedImages = uploadResult.successful.map(result => ({
+          fileName: result.fileName,
+          fileUrl: result.location,
+          fileType: result.fileName.split('.').pop(),
+          fileSize: result.size,
+          s3Key: result.key,
+          uploadedBy: req.user._id,
+          uploadedAt: new Date()
+        }));
+        
+        // Log any failed uploads
+        if (uploadResult.failureCount > 0) {
+          console.warn(`Warning: ${uploadResult.failureCount} images failed to upload:`, uploadResult.failed);
+        }
+        
+        console.log(`Successfully processed ${uploadResult.successCount} images`);
+      } catch (uploadError) {
+        console.error('Image upload error:', uploadError);
+        return res.status(500).json({
+          message: "Failed to upload images",
+          error: uploadError.message
+        });
+      }
+    }
+
     const newTask = await Task.create({
       title,
       description,
@@ -46,10 +122,16 @@ const createTask = async (req, res) => {
       assignees,
       project: projectId,
       createdBy: req.user._id,
+      images: uploadedImages,
     });
 
     project.tasks.push(newTask._id);
     await project.save();
+
+    // Record activity
+    await recordActivity(req.user._id, "created_task", "Task", newTask._id, {
+      description: `created task ${title}`,
+    });
 
     res.status(201).json(newTask);
   } catch (error) {

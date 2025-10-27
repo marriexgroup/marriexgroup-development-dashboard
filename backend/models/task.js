@@ -53,6 +53,17 @@ const taskSchema = new Schema(
         uploadedAt: { type: Date, default: Date.now },
       },
     ],
+    images: [
+      {
+        fileName: { type: String, required: true },
+        fileUrl: { type: String, required: true },
+        fileType: { type: String },
+        fileSize: { type: String },
+        s3Key: { type: String }, // S3 object key for deletion
+        uploadedBy: { type: Schema.Types.ObjectId, ref: "User" },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     isArchived: { type: Boolean, default: false },
   },

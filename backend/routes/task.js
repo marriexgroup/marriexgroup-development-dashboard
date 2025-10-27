@@ -2,7 +2,7 @@ import express from "express";
 
 import { z } from "zod";
 import { validateRequest } from "zod-express-middleware";
-import { taskSchema } from "../libs/validate-schema.js";
+import { taskCreateWithFilesSchema } from "../libs/validate-schema.js";
 import {
   achievedTask,
   addComment,
@@ -21,18 +21,51 @@ import {
   watchTask,
 } from "../controllers/task.js";
 import authMiddleware from "../middleware/auth-middleware.js";
+import { uploadTaskImages, handleUploadError } from "../middleware/upload-middleware.js";
 
 const router = express.Router();
+
+// Custom validation middleware for task creation with files
+const validateTaskCreation = (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const { title, description, status, priority, dueDate, assignees } = req.body;
+
+    // Validate required fields
+    if (!title || title.trim().length === 0) {
+      return res.status(400).json({ message: "Task title is required" });
+    }
+    if (!status || !["To Do", "In Progress", "Done"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+    if (!priority || !["Low", "Medium", "High"].includes(priority)) {
+      return res.status(400).json({ message: "Invalid priority" });
+    }
+    if (!dueDate || dueDate.trim().length === 0) {
+      return res.status(400).json({ message: "Due date is required" });
+    }
+    if (!assignees || assignees.trim().length === 0) {
+      return res.status(400).json({ message: "At least one assignee is required" });
+    }
+
+    // Validate projectId
+    if (!projectId || projectId.trim().length === 0) {
+      return res.status(400).json({ message: "Project ID is required" });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Validation error:', error);
+    return res.status(400).json({ message: "Invalid request data" });
+  }
+};
 
 router.post(
   "/:projectId/create-task",
   authMiddleware,
-  validateRequest({
-    params: z.object({
-      projectId: z.string(),
-    }),
-    body: taskSchema,
-  }),
+  uploadTaskImages,
+  handleUploadError,
+  validateTaskCreation,
   createTask
 );
 
