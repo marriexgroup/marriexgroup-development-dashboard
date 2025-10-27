@@ -5,6 +5,7 @@ import { SubTasksDetails } from "@/components/task/sub-tasks";
 import { TaskActivity } from "@/components/task/task-activity";
 import { TaskAssigneesSelector } from "@/components/task/task-assignees-selector";
 import { TaskDescription } from "@/components/task/task-description";
+import { TaskImages } from "@/components/task/task-images";
 import { TaskPrioritySelector } from "@/components/task/task-priority-selector";
 import { TaskStatusSelector } from "@/components/task/task-status-selector";
 import { TaskTitle } from "@/components/task/task-title";
@@ -196,6 +197,9 @@ const TaskDetails = () => {
                 taskId={task._id}
               />
             </div>
+
+            {/* Task Images Section */}
+            <TaskImages images={task.images || []} taskId={task._id} />
 
             <TaskAssigneesSelector
               task={task}
