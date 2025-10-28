@@ -3,9 +3,12 @@ import { WorkspaceAvatar } from "./workspace-avatar";
 import { Button } from "../ui/button";
 import { Plus, UserPlus, Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { useSearchWorkspaceMembers } from "@/hooks/use-workspace";
+import { useAcceptGenerateInviteMutation, useSearchWorkspaceMembers } from "@/hooks/use-workspace";
 import { Loader } from "../loader";
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Alert, AlertDescription } from "../ui/alert";
+import { toast } from "sonner";
 
 interface WorkspaceHeaderProps {
   workspace: Workspace;
@@ -25,10 +28,25 @@ export const WorkspaceHeader = ({
   onCreateProject,
   onAddMember,
 }: WorkspaceHeaderProps) => {
+  console.log(members);
+  
   const [search, setSearch] = useState("");
+  const [role, setRole] = useState("member");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const { data, isLoading, isFetching } = useSearchWorkspaceMembers(search);
   const users = useMemo(() => (data as any)?.users ?? [], [data]);
   const showResults = search.length > 0;
+  const { mutate: acceptInvite, isPending: isAccepting } = useAcceptGenerateInviteMutation();
+  const queryClient = useQueryClient();
+
+  const getInitials = (name?: string, email?: string) => {
+    const source = (name && name.trim().length > 0 ? name : email || "?").trim();
+    const parts = source.split(/\s+/).filter(Boolean);
+    const first = parts[0]?.charAt(0) || "?";
+    const second = parts.length > 1 ? parts[1].charAt(0) : "";
+    return (first + second).toUpperCase();
+  };
   return (
     <div className="space-y-8">
       <div className="space-y-3">
@@ -99,7 +117,10 @@ export const WorkspaceHeader = ({
                           <div
                             key={u._id ?? u.email}
                             className="flex items-center gap-3 p-2 hover:bg-muted rounded cursor-pointer"
-                            onClick={() => setSearch("")}
+                            onClick={() => {
+                              setSelectedUser(u);
+                              setSearch("");
+                            }}
                           >
                             <Avatar className="h-6 w-6">
                               <AvatarImage src={u.profilePicture} />
@@ -118,15 +139,32 @@ export const WorkspaceHeader = ({
               )}
             </div>
             
-            <select className="w-full sm:w-32 px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+            <select className="w-full sm:w-32 px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="member">Member</option>
               <option value="admin">Admin</option>
               <option value="viewer">Viewer</option>
             </select>
             
-            <Button size="sm" className="whitespace-nowrap">
+            <Button
+              size="sm"
+              className="whitespace-nowrap"
+              onClick={() =>
+                selectedUser &&
+                acceptInvite({ workspaceId: workspace._id, memberId: selectedUser._id }, {
+                  onSuccess: () => {
+                    toast.success("Member added successfully");
+                    queryClient.invalidateQueries({ queryKey: ["workspace", workspace._id, "details"] });
+                    queryClient.invalidateQueries({ queryKey: ["workspace", workspace._id] });
+                    queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+                    setSelectedUser(null);
+                    setTimeout(() => setSuccessMessage(""), 2000);
+                  },
+                })
+              }
+              disabled={!selectedUser || isAccepting}
+            >
               <UserPlus className="size-4 mr-2" />
-              Add
+              {isAccepting ? "Adding..." : selectedUser ? "Add" : "Select user"}
             </Button>
           </div>
           
@@ -149,7 +187,7 @@ export const WorkspaceHeader = ({
                   src={member.user.profilePicture}
                   alt={member.user.name}
                 />
-                <AvatarFallback>{member.user.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{getInitials(member.user.name, member.user.email)}</AvatarFallback>
               </Avatar>
             ))}
           </div>

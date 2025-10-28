@@ -423,18 +423,18 @@ const acceptGenerateInvite = async (req, res) => {
       });
     }
 
-    const isMember = workspace.members.some(
-      (member) => member.user.toString() === req.user._id.toString()
-    );
+    // const isMember = workspace.members.some(
+    //   (member) => member.user.toString() === req.user._id.toString()
+    // );
 
-    if (isMember) {
-      return res.status(400).json({
-        message: "You are already a member of this workspace",
-      });
-    }
+    // if (isMember) {
+    //   return res.status(400).json({
+    //     message: "Member already a member of this workspace",
+    //   });
+    // }
 
     workspace.members.push({
-      user: req.user._id,
+      user: req.body.memberId,
       role: "member",
       joinedAt: new Date(),
     });
@@ -452,7 +452,7 @@ const acceptGenerateInvite = async (req, res) => {
     );
 
     res.status(200).json({
-      message: "Invitation accepted successfully",
+      message: "Member added successfully",
     });
   } catch (error) {
     console.log(error);
@@ -532,12 +532,9 @@ const acceptInviteByToken = async (req, res) => {
 };
 
 const searchAllMembers = async (req, res) => {
-  console.log('>>>>>>>>>>>>>> came');
   try {
     const { search } = req.query;
-    console.log('>>>>>>>>>>>>>>',search);
     
-
     if (!search || search.trim() === '') {
       return res.status(400).json({
         message: "Search query is required",
