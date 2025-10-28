@@ -1,8 +1,11 @@
 import type { User, Workspace } from "@/types";
 import { WorkspaceAvatar } from "./workspace-avatar";
 import { Button } from "../ui/button";
-import { Plus, UserPlus } from "lucide-react";
+import { Plus, UserPlus, Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { useSearchWorkspaceMembers } from "@/hooks/use-workspace";
+import { Loader } from "../loader";
+import { useMemo, useState } from "react";
 
 interface WorkspaceHeaderProps {
   workspace: Workspace;
@@ -13,15 +16,19 @@ interface WorkspaceHeaderProps {
     joinedAt: Date;
   }[];
   onCreateProject: () => void;
-  onInviteMember: () => void;
+  onAddMember: () => void;
 }
 
 export const WorkspaceHeader = ({
   workspace,
   members,
   onCreateProject,
-  onInviteMember,
+  onAddMember,
 }: WorkspaceHeaderProps) => {
+  const [search, setSearch] = useState("");
+  const { data, isLoading, isFetching } = useSearchWorkspaceMembers(search);
+  const users = useMemo(() => (data as any)?.users ?? [], [data]);
+  const showResults = search.length > 0;
   return (
     <div className="space-y-8">
       <div className="space-y-3">
@@ -37,10 +44,10 @@ export const WorkspaceHeader = ({
           </div>
 
           <div className="flex items-center gap-3 justify-between md:justify-start mb-4 md:mb-0">
-            <Button variant={"outline"} onClick={onInviteMember}>
+            {/* <Button variant={"outline"} onClick={onAddMember}>
               <UserPlus className="size-4 mr-2" />
-              Invite
-            </Button>
+              Add Member
+            </Button> */}
             <Button onClick={onCreateProject}>
               <Plus className="size-4 mr-2" />
               Create Project
@@ -55,6 +62,78 @@ export const WorkspaceHeader = ({
         )}
       </div>
 
+      {/* Add Member UI Section */}
+      <div className="bg-muted/50 rounded-lg p-4 space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">Add Team Members</h3>
+          <p className="text-xs text-muted-foreground">
+            Search for users and add them to your workspace with a specific role
+          </p>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <input
+                type="text"
+                placeholder="Search members..."
+                className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {showResults && (
+                <div className="absolute z-20 mt-2 w-full border border-border rounded-md bg-background shadow-sm max-h-64 overflow-auto">
+                  <div className="p-2 space-y-1">
+                    {(isLoading || isFetching) && (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader />
+                      </div>
+                    )}
+                    {!isLoading && !isFetching && users.length === 0 && (
+                      <div className="py-3 text-center text-sm text-muted-foreground">No users found</div>
+                    )}
+                    {!isLoading && !isFetching && users.length > 0 && (
+                      <div className="space-y-1">
+                        {users.map((u: any) => (
+                          <div
+                            key={u._id ?? u.email}
+                            className="flex items-center gap-3 p-2 hover:bg-muted rounded cursor-pointer"
+                            onClick={() => setSearch("")}
+                          >
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={u.profilePicture} />
+                              <AvatarFallback className="text-xs">{(u.name ?? u.email ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{u.name ?? "Unnamed"}</p>
+                              <p className="text-xs text-muted-foreground">{u.email}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <select className="w-full sm:w-32 px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            
+            <Button size="sm" className="whitespace-nowrap">
+              <UserPlus className="size-4 mr-2" />
+              Add
+            </Button>
+          </div>
+          
+          {/* results rendered within input container above */}
+        </div>
+      </div>
+
       {members.length > 0 && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Members</span>
@@ -63,7 +142,7 @@ export const WorkspaceHeader = ({
             {members.map((member) => (
               <Avatar
                 key={member._id}
-                className="relative h-8 w-8 rounded-full  border-2 border-background overflow-hidden"
+                className="relative h-8 w-8 rounded-full border-2 border-background overflow-hidden"
                 title={member.user.name}
               >
                 <AvatarImage

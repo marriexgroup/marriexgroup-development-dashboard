@@ -9,6 +9,7 @@ import {
   getWorkspaces,
   getWorkspaceStats,
   inviteUserToWorkspace,
+  searchAllMembers,
 } from "../controllers/workspace.js";
 import {
   inviteMemberSchema,
@@ -53,6 +54,7 @@ router.post(
 
 router.get("/", authMiddleware, getWorkspaces);
 
+router.get('/search-members', authMiddleware, searchAllMembers);
 router.get("/:workspaceId", authMiddleware, getWorkspaceDetails);
 router.get("/:workspaceId/projects", authMiddleware, getWorkspaceProjects);
 router.get("/:workspaceId/stats", authMiddleware, getWorkspaceStats);

@@ -63,7 +63,7 @@ const getWorkspaceDetails = async (req, res) => {
     }
 
     res.status(200).json(workspace);
-  } catch (error) {}
+  } catch (error) { }
 };
 
 const getWorkspaceProjects = async (req, res) => {
@@ -530,6 +530,43 @@ const acceptInviteByToken = async (req, res) => {
     });
   }
 };
+
+const searchAllMembers = async (req, res) => {
+  console.log('>>>>>>>>>>>>>> came');
+  try {
+    const { search } = req.query;
+    console.log('>>>>>>>>>>>>>>',search);
+    
+
+    if (!search || search.trim() === '') {
+      return res.status(400).json({
+        message: "Search query is required",
+      });
+    }
+
+    // Search for users by name or email that match the search term
+    const searchRegex = new RegExp(search, 'i'); // case-insensitive search
+    
+    const users = await User.find({
+      $or: [
+        { name: { $regex: searchRegex } },
+        { email: { $regex: searchRegex } }
+      ]
+    }).select('name email profilePicture').limit(50); // Limit results for performance
+
+    res.status(200).json({
+      users: users,
+      total: users.length
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
 export {
   createWorkspace,
   getWorkspaces,
@@ -539,4 +576,5 @@ export {
   inviteUserToWorkspace,
   acceptGenerateInvite,
   acceptInviteByToken,
+  searchAllMembers
 };

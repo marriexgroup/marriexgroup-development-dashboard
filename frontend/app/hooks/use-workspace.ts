@@ -58,3 +58,11 @@ export const useAcceptGenerateInviteMutation = () => {
       postData(`/workspaces/${workspaceId}/accept-generate-invite`, {}),
   });
 };
+
+export const useSearchWorkspaceMembers = ( search: string) => {
+  return useQuery({
+    queryKey: ["search", search],
+    queryFn: async () => fetchData(`/workspaces/search-members?search=${encodeURIComponent(search)}`),
+    enabled: !!search && search.length > 0, // Only run query when there's a search term
+  });
+};

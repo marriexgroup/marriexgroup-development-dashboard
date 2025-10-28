@@ -39,7 +39,7 @@ const WorkspaceDetails = () => {
         workspace={data.workspace}
         members={data?.workspace?.members as any}
         onCreateProject={() => setIsCreateProject(true)}
-        onInviteMember={() => setIsInviteMember(true)}
+        onAddMember={() => setIsInviteMember(true)}
       />
 
       <ProjectList
