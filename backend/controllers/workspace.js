@@ -2,9 +2,13 @@ import Workspace from "../models/workspace.js";
 import Project from "../models/project.js";
 import User from "../models/user.js";
 import WorkspaceInvite from "../models/workspace-invite.js";
+import Task from "../models/task.js";
+import Comment from "../models/comment.js";
+import ActivityLog from "../models/activity.js";
 import jwt from "jsonwebtoken";
 import { sendEmail } from "../libs/send-email.js";
 import { recordActivity } from "../libs/index.js";
+import { deleteImageFromS3 } from "../libs/s3-upload.js";
 
 const createWorkspace = async (req, res) => {
   try {
@@ -313,6 +317,60 @@ const getWorkspaceStats = async (req, res) => {
   }
 };
 
+const deleteWorkspace = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const workspace = await Workspace.findById(id);
+    if (!workspace) {
+      return res.status(404).json({ message: "Workspace not found" });
+    }
+
+    const member = workspace.members.find(
+      (m) => String(m.user) === String(req.user._id)
+    );
+    if (!member || member.role !== "owner") {
+      return res.status(403).json({ message: "Only owner can delete workspace" });
+    }
+
+    const projects = await Project.find({ workspace: workspace._id });
+    const projectIds = projects.map((p) => p._id);
+
+    const tasks = await Task.find({ project: { $in: projectIds } });
+    const taskIds = tasks.map((t) => t._id);
+
+    const imageKeys = tasks
+      .flatMap((t) => (t.images || []).map((img) => img.s3Key).filter(Boolean));
+
+    await Comment.deleteMany({ task: { $in: taskIds } });
+    await Task.deleteMany({ _id: { $in: taskIds } });
+    await Project.deleteMany({ _id: { $in: projectIds } });
+    await WorkspaceInvite.deleteMany({ workspaceId: workspace._id });
+    await ActivityLog.deleteMany({
+      $or: [
+        { resourceType: "Workspace", resourceId: workspace._id },
+        { resourceType: "Project", resourceId: { $in: projectIds } },
+        { resourceType: "Task", resourceId: { $in: taskIds } },
+      ],
+    });
+
+    await Promise.all(
+      imageKeys.map(async (key) => {
+        try {
+          await deleteImageFromS3(key);
+        } catch (_) {}
+      })
+    );
+
+    await Workspace.findByIdAndDelete(workspace._id);
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 const inviteUserToWorkspace = async (req, res) => {
   try {
     const { workspaceId } = req.params;
@@ -573,5 +631,6 @@ export {
   inviteUserToWorkspace,
   acceptGenerateInvite,
   acceptInviteByToken,
-  searchAllMembers
+  searchAllMembers,
+  deleteWorkspace
 };

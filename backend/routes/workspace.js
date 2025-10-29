@@ -10,6 +10,7 @@ import {
   getWorkspaceStats,
   inviteUserToWorkspace,
   searchAllMembers,
+  deleteWorkspace,
 } from "../controllers/workspace.js";
 import {
   inviteMemberSchema,
@@ -58,5 +59,12 @@ router.get('/search-members', authMiddleware, searchAllMembers);
 router.get("/:workspaceId", authMiddleware, getWorkspaceDetails);
 router.get("/:workspaceId/projects", authMiddleware, getWorkspaceProjects);
 router.get("/:workspaceId/stats", authMiddleware, getWorkspaceStats);
+
+router.delete(
+  "/:id",
+  authMiddleware,
+  validateRequest({ params: z.object({ id: z.string() }) }),
+  deleteWorkspace
+);
 
 export default router;

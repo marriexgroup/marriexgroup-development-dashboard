@@ -10,11 +10,12 @@ import {
 } from "@/components/ui/card";
 import { CreateWorkspace } from "@/components/workspace/create-workspace";
 import { WorkspaceAvatar } from "@/components/workspace/workspace-avatar";
-import { useGetWorkspacesQuery } from "@/hooks/use-workspace";
+import { useGetWorkspacesQuery, useDeleteWorkspaceMutation } from "@/hooks/use-workspace";
 import type { Workspace } from "@/types";
-import { PlusCircle, Users } from "lucide-react";
+import { PlusCircle, Users, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLoaderData } from "react-router";
+import { useAuth } from "@/provider/auth-context";
 import { format } from "date-fns";
 
 const Workspaces = () => {
@@ -65,6 +66,23 @@ const Workspaces = () => {
 };
 
 const WorkspaceCard = ({ workspace }: { workspace: Workspace }) => {
+  const { mutateAsync: deleteWorkspace, isPending } = useDeleteWorkspaceMutation();
+  const { user } = useAuth();
+
+  const isOwner = user && (
+    typeof workspace.owner === "string"
+      ? workspace.owner === user._id
+      : (workspace.owner as any)?._id === user._id
+  );
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const ok = window.confirm("Delete this workspace? This will remove all projects and tasks under it.");
+    if (!ok) return;
+    await deleteWorkspace(workspace._id);
+  };
+
   return (
     <Link to={`/workspaces/${workspace._id}`}>
       <Card className="transition-all hover:shadow-md hover:-translate-y-1">
@@ -81,9 +99,21 @@ const WorkspaceCard = ({ workspace }: { workspace: Workspace }) => {
               </div>
             </div>
 
-            <div className="flex items-center text-muted-foreground">
-              <Users className="size-4 mr-1" />
-              <span className="text-xs">{workspace.members.length}</span>
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <div className="flex items-center">
+                <Users className="size-4 mr-1" />
+                <span className="text-xs">{workspace.members.length}</span>
+              </div>
+              {isOwner && (
+                <button
+                  aria-label="Delete workspace"
+                  className="text-destructive hover:text-destructive/90"
+                  onClick={handleDelete}
+                  disabled={isPending}
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              )}
             </div>
           </div>
 

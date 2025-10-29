@@ -1,6 +1,6 @@
 import type { WorkspaceForm } from "@/components/workspace/create-workspace";
-import { fetchData, postData } from "@/lib/fetch-util";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { fetchData, postData, deleteData } from "@/lib/fetch-util";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const useCreateWorkspace = () => {
   return useMutation({
@@ -66,5 +66,16 @@ export const useSearchWorkspaceMembers = ( search: string) => {
     queryKey: ["search", search],
     queryFn: async () => fetchData(`/workspaces/search-members?search=${encodeURIComponent(search)}`),
     enabled: !!search && search.length > 0, // Only run query when there's a search term
+  });
+};
+
+export const useDeleteWorkspaceMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (workspaceId: string) => deleteData(`/workspaces/${workspaceId}`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    },
   });
 };
