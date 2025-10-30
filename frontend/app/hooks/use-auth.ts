@@ -24,7 +24,7 @@ export const useLoginMutation = () => {
 
 export const useForgotPasswordMutation = () => {
   return useMutation({
-    mutationFn: (data: { email: string }) =>
+    mutationFn: (data: { email: string; otp?: string }) =>
       postData("/auth/reset-password-request", data),
   });
 };
@@ -36,5 +36,19 @@ export const useResetPasswordMutation = () => {
       newPassword: string;
       confirmPassword: string;
     }) => postData("/auth/reset-password", data),
+  });
+};
+
+export const useSetup2FARequestMutation = () => {
+  return useMutation({
+    mutationFn: (data: { email: string }) =>
+      postData("/auth/setup-2fa-request", data),
+  });
+};
+
+export const useSetup2FAVerifyMutation = () => {
+  return useMutation({
+    mutationFn: (data: { email: string; otp: string }) =>
+      postData("/auth/setup-2fa-verify", data),
   });
 };

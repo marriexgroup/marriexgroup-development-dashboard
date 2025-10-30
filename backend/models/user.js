@@ -15,6 +15,7 @@ const userSchema = new Schema(
     isEmailVerified: { type: Boolean, default: true },
     lastLogin: { type: Date },
     is2FAEnabled: { type: Boolean, default: false },
+    twoFASecret: { type: String, select: false },
     twoFAOtp: { type: String, select: false },
     twoFAOtpExpires: { type: Date, select: false },
   },

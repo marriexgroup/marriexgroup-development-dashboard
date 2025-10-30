@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import Verification from "../models/verification.js";
 import { sendEmail } from "../libs/send-email.js";
+import { authenticator as totp } from "otplib";
 import aj from "../libs/arcjet.js";
 
 const registerUser = async (req, res) => {
@@ -211,9 +212,9 @@ const verifyEmail = async (req, res) => {
 
 const resetPasswordRequest = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, otp } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+twoFASecret");
 
     if (!user) {
       return res.status(400).json({ message: "User not found" });
@@ -223,6 +224,18 @@ const resetPasswordRequest = async (req, res) => {
       return res
         .status(400)
         .json({ message: "Please verify your email first" });
+    }
+
+    if (!user.is2FAEnabled || !user.twoFASecret) {
+      return res.status(400).json({
+        message: "Authenticator not enabled for this account",
+      });
+    }
+
+    const isOtpValid = totp.verify({ token: otp, secret: user.twoFASecret });
+
+    if (!isOtpValid) {
+      return res.status(400).json({ message: "Invalid authenticator code" });
     }
 
     const existingVerification = await Verification.findOne({
@@ -251,19 +264,11 @@ const resetPasswordRequest = async (req, res) => {
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     });
 
-    const resetPasswordLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetPasswordToken}`;
-    const emailBody = `<p>Click <a href="${resetPasswordLink}">here</a> to reset your password</p>`;
-    const emailSubject = "Reset your password";
-
-    const isEmailSent = await sendEmail(email, emailSubject, emailBody);
-
-    if (!isEmailSent) {
-      return res.status(500).json({
-        message: "Failed to send reset password email",
-      });
-    }
-
-    res.status(200).json({ message: "Reset password email sent" });
+    // Return token directly (no email)
+    res.status(200).json({
+      message: "Authenticator verified. Proceed to reset password",
+      token: resetPasswordToken,
+    });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Internal server error" });
@@ -326,10 +331,77 @@ const verifyResetPasswordTokenAndResetPassword = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// 2FA Setup: Request - generates a secret and returns otpauth URL
+const setupTwoFARequest = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email }).select("+password");
+
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    if (user.is2FAEnabled && user.twoFASecret) {
+      return res.status(400).json({ message: "Authenticator already enabled" });
+    }
+
+    const secret = totp.generateSecret();
+    user.twoFASecret = secret;
+    await user.save();
+
+    const issuer = process.env.APP_NAME || "MarriexGroupDashboard";
+    const otpauth = totp.keyuri(email, issuer, secret);
+
+    return res.status(200).json({
+      message: "Authenticator setup initiated",
+      secret,
+      otpauth,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// 2FA Setup: Verify - confirms OTP and enables 2FA
+const setupTwoFAVerify = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email }).select("+password +twoFASecret");
+
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    if (!user.twoFASecret) {
+      return res.status(400).json({ message: "No authenticator setup in progress" });
+    }
+
+    const isValid = totp.verify({ token: otp, secret: user.twoFASecret });
+
+    if (!isValid) {
+      return res.status(400).json({ message: "Invalid authenticator code" });
+    }
+
+    user.is2FAEnabled = true;
+    await user.save();
+
+    return res.status(200).json({ message: "Authenticator enabled successfully" });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 export {
   registerUser,
   loginUser,
   verifyEmail,
   resetPasswordRequest,
   verifyResetPasswordTokenAndResetPassword,
+  setupTwoFARequest,
+  setupTwoFAVerify,
+  // 2FA setup endpoints will be exported below
 };

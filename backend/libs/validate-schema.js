@@ -21,8 +21,18 @@ const resetPasswordSchema = z.object({
   confirmPassword: z.string().min(1, "Confirm password is required"),
 });
 
-const emailSchema = z.object({
+const resetPasswordRequestSchema = z.object({
   email: z.string().email("Invalid email address"),
+  otp: z.string().min(6, "OTP must be 6 digits").max(6, "OTP must be 6 digits"),
+});
+
+const twoFASetupRequestSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
+const twoFASetupVerifySchema = z.object({
+  email: z.string().email("Invalid email address"),
+  otp: z.string().min(6, "OTP must be 6 digits").max(6, "OTP must be 6 digits"),
 });
 
 const inviteMemberSchema = z.object({
@@ -87,7 +97,9 @@ export {
   loginSchema,
   verifyEmailSchema,
   resetPasswordSchema,
-  emailSchema,
+  resetPasswordRequestSchema,
+  twoFASetupRequestSchema,
+  twoFASetupVerifySchema,
   workspaceSchema,
   projectSchema,
   taskSchema,

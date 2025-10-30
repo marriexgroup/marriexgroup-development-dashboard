@@ -28,8 +28,12 @@ export const resetPasswordSchema = z
     message: "Passwords do not match",
   });
 
-export const forgotPasswordSchema = z.object({
+export const forgotPasswordSchema: z.ZodType<{ email: string; otp?: string }> = z.object({
   email: z.string().email("Invalid email address"),
+  otp: z
+    .preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+      z.string().length(6, "OTP must be 6 digits").optional()
+    ),
 });
 
 export const workspaceSchema = z.object({
