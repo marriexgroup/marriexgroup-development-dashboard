@@ -8,7 +8,22 @@ import aj from "../libs/arcjet.js";
 
 const registerUser = async (req, res) => {
   try {
-    const { email, name, password } = req.body;
+    const { email, name, password, dataProtectionAgreementAccepted } = req.body;
+
+    // Get IP address from request
+    const ipAddress =
+      req.ip ||
+      req.headers["x-forwarded-for"]?.split(",")[0] ||
+      req.headers["x-real-ip"] ||
+      req.connection?.remoteAddress ||
+      "unknown";
+
+    if (!dataProtectionAgreementAccepted) {
+      return res.status(400).json({
+        message:
+          "You must accept the Data Protection and Confidentiality Consent Agreement to continue",
+      });
+    }
 
     const decision = await aj.protect(req, { email });
     console.log("Arcjet decision", decision.isDenied());
@@ -34,6 +49,11 @@ const registerUser = async (req, res) => {
       email,
       password: hashPassword,
       name,
+      dataProtectionAgreement: {
+        accepted: true,
+        acceptedAt: new Date(),
+        acceptedIpAddress: ipAddress,
+      },
     });
 
     const verificationToken = jwt.sign(

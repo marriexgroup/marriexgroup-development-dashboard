@@ -18,6 +18,11 @@ const userSchema = new Schema(
     twoFASecret: { type: String, select: false },
     twoFAOtp: { type: String, select: false },
     twoFAOtpExpires: { type: Date, select: false },
+    dataProtectionAgreement: {
+      accepted: { type: Boolean, default: false },
+      acceptedAt: { type: Date },
+      acceptedIpAddress: { type: String },
+    },
   },
   { timestamps: true }
 );
