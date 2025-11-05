@@ -189,8 +189,35 @@ export const useAddCommentMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { taskId: string; text: string }) =>
-      postData(`/tasks/${data.taskId}/add-comment`, { text: data.text }),
+    mutationFn: (data: { taskId: string; text: string; images?: File[] }) => {
+      const formData = new FormData();
+      
+      // Add text field
+      formData.append('text', data.text || '');
+      
+      // Add images if they exist
+      if (data.images && data.images.length > 0) {
+        data.images.forEach((image) => {
+          formData.append('images', image);
+        });
+      }
+      
+      const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api-v1";
+      const token = localStorage.getItem("token");
+      
+      return fetch(`${BASE_URL}/tasks/${data.taskId}/add-comment`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }).then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to add comment');
+        }
+        return res.json();
+      });
+    },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({
         queryKey: ["comments", data.task],

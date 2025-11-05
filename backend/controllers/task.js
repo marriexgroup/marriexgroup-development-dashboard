@@ -580,10 +580,58 @@ const addComment = async (req, res) => {
       });
     }
 
+    // Handle image uploads if files are present
+    let uploadedAttachments = [];
+    if (req.files && req.files.length > 0) {
+      try {
+        console.log(`Processing ${req.files.length} image uploads for comment...`);
+        
+        // Use sequential upload with partial success allowed
+        const uploadResult = await uploadMultipleImagesWithPartialSuccess(req.files, true);
+        
+        if (uploadResult.successCount === 0) {
+          return res.status(500).json({
+            message: "Failed to upload any images",
+            details: uploadResult.failed
+          });
+        }
+        
+        // Process successful uploads
+        // Match uploaded files with original files to get byte size
+        uploadedAttachments = uploadResult.successful.map((result, index) => {
+          // Find the original file by matching the fileName
+          const originalFile = req.files.find(file => file.originalname === result.fileName);
+          // Get the actual file size in bytes (fileSize is a Number field in Comment model)
+          const fileSizeInBytes = originalFile ? originalFile.size : 0;
+          
+          return {
+            fileName: result.fileName,
+            fileUrl: result.location,
+            fileType: result.fileName.split('.').pop(),
+            fileSize: fileSizeInBytes,
+          };
+        });
+        
+        // Log any failed uploads
+        if (uploadResult.failureCount > 0) {
+          console.warn(`Warning: ${uploadResult.failureCount} images failed to upload:`, uploadResult.failed);
+        }
+        
+        console.log(`Successfully processed ${uploadResult.successCount} images for comment`);
+      } catch (uploadError) {
+        console.error('Image upload error:', uploadError);
+        return res.status(500).json({
+          message: "Failed to upload images",
+          error: uploadError.message
+        });
+      }
+    }
+
     const newComment = await Comment.create({
-      text,
+      text: text || "",
       task: taskId,
       author: req.user._id,
+      attachments: uploadedAttachments,
     });
 
     task.comments.push(newComment._id);
@@ -592,7 +640,7 @@ const addComment = async (req, res) => {
     // record activity
     await recordActivity(req.user._id, "added_comment", "Task", taskId, {
       description: `added comment ${
-        text.substring(0, 50) + (text.length > 50 ? "..." : "")
+        (text || "").substring(0, 50) + ((text || "").length > 50 ? "..." : "")
       }`,
     });
 

@@ -82,10 +82,8 @@ router.post(
 router.post(
   "/:taskId/add-comment",
   authMiddleware,
-  validateRequest({
-    params: z.object({ taskId: z.string() }),
-    body: z.object({ text: z.string() }),
-  }),
+  uploadTaskImages,
+  handleUploadError,
   addComment
 );
 
