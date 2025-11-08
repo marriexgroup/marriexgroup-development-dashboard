@@ -41,7 +41,9 @@ const getWorkspaces = async (req, res) => {
   try {
     const workspaces = await Workspace.find({
       "members.user": req.user._id,
-    }).sort({ createdAt: -1 });
+    })
+      .populate("members.user", "name email profilePicture dataProtectionAgreement")
+      .sort({ createdAt: -1 });
 
     res.status(200).json(workspaces);
   } catch (error) {
@@ -58,7 +60,7 @@ const getWorkspaceDetails = async (req, res) => {
 
     const workspace = await Workspace.findById({
       _id: workspaceId,
-    }).populate("members.user", "name email profilePicture");
+    }).populate("members.user", "name email profilePicture dataProtectionAgreement");
 
     if (!workspace) {
       return res.status(404).json({
@@ -77,7 +79,7 @@ const getWorkspaceProjects = async (req, res) => {
     const workspace = await Workspace.findOne({
       _id: workspaceId,
       "members.user": req.user._id,
-    }).populate("members.user", "name email profilePicture");
+    }).populate("members.user", "name email profilePicture dataProtectionAgreement");
 
     if (!workspace) {
       return res.status(404).json({
@@ -90,7 +92,7 @@ const getWorkspaceProjects = async (req, res) => {
       isArchived: false,
       members: { $elemMatch: { user: req.user._id } },
     })
-      .populate("tasks", "status")
+      .populate("tasks", "title status project _id")
       .sort({ createdAt: -1 });
 
     res.status(200).json({ projects, workspace });

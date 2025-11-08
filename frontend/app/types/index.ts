@@ -6,6 +6,18 @@ export interface User {
   isEmailVerified: boolean;
   updatedAt: Date;
   profilePicture?: string;
+  dataProtectionAgreement?: {
+    accepted: boolean;
+    acceptedAt?: Date;
+    acceptedIpAddress?: string;
+    signed?: {
+      fullName?: string;
+      designation?: string;
+      date?: Date;
+      signedAt?: Date;
+      signedWith2FA?: boolean;
+    };
+  };
 }
 
 export interface Workspace {
@@ -185,4 +197,24 @@ export interface WorkspaceProductivityData {
   name: string;
   completed: number;
   total: number;
+}
+
+export type PaymentStatus = "pending" | "completed" | "cancelled";
+export type PaymentCurrency = "USD" | "EUR" | "GBP" | "INR" | "PKR";
+
+export interface Payment {
+  _id: string;
+  amount: number;
+  currency: PaymentCurrency;
+  description?: string;
+  paymentDate: Date;
+  status: PaymentStatus;
+  projects: Project[];
+  tasks: Task[];
+  workspace: Workspace;
+  createdBy: User;
+  notes?: string;
+  invoiceNumber?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

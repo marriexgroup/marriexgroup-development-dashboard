@@ -276,3 +276,10 @@ export const useGetMyTasksQuery = () => {
     queryFn: () => fetchData("/tasks/my-tasks"),
   });
 };
+
+export const useGetCompletedTasksQuery = () => {
+  return useQuery({
+    queryKey: ["completed-tasks", "user"],
+    queryFn: () => fetchData("/tasks/completed-tasks"),
+  });
+};

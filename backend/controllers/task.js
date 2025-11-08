@@ -777,6 +777,34 @@ const getMyTasks = async (req, res) => {
   }
 };
 
+const getCompletedTasks = async (req, res) => {
+  try {
+    const tasks = await Task.find({
+      assignees: { $in: [req.user._id] },
+      $or: [
+        { status: "Done" },
+        { isArchived: true }
+      ]
+    })
+      .populate({
+        path: "project",
+        select: "title workspace",
+        populate: {
+          path: "workspace",
+          select: "name color _id"
+        }
+      })
+      .sort({ updatedAt: -1 });
+
+    res.status(200).json(tasks);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+};
+
 export {
   createTask,
   getTaskById,
@@ -793,4 +821,5 @@ export {
   watchTask,
   achievedTask,
   getMyTasks,
+  getCompletedTasks,
 };
