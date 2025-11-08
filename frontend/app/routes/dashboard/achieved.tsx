@@ -104,7 +104,7 @@ const Achieved = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-start md:items-center justify-between">
-        <h1 className="text-2xl font-bold">Achieved Tasks</h1>
+        <h1 className="text-2xl font-bold">Completed Tasks</h1>
       </div>
 
       <Input
