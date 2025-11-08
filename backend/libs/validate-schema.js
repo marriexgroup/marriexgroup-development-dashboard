@@ -40,6 +40,13 @@ const twoFASetupVerifySchema = z.object({
   otp: z.string().min(6, "OTP must be 6 digits").max(6, "OTP must be 6 digits"),
 });
 
+const signAgreementSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  otp: z.string().min(6, "OTP must be 6 digits").max(6, "OTP must be 6 digits"),
+  fullName: z.string().min(1, "Full name is required"),
+  designation: z.string().min(1, "Designation is required"),
+});
+
 const inviteMemberSchema = z.object({
   email: z.string().email("Invalid email address"),
   role: z.enum(["admin", "member", "viewer"]),
@@ -105,6 +112,7 @@ export {
   resetPasswordRequestSchema,
   twoFASetupRequestSchema,
   twoFASetupVerifySchema,
+  signAgreementSchema,
   workspaceSchema,
   projectSchema,
   taskSchema,

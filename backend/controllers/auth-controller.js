@@ -415,6 +415,60 @@ const setupTwoFAVerify = async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// Sign Agreement with 2FA verification
+const signAgreement = async (req, res) => {
+  try {
+    const { email, otp, fullName, designation } = req.body;
+
+    const user = await User.findOne({ email }).select("+twoFASecret");
+
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    if (!user.is2FAEnabled || !user.twoFASecret) {
+      return res.status(400).json({ message: "2FA is not enabled for this account" });
+    }
+
+    // Verify 2FA code
+    const isValid = totp.verify({ token: otp, secret: user.twoFASecret });
+
+    if (!isValid) {
+      return res.status(400).json({ message: "Invalid authenticator code" });
+    }
+
+    // Get IP address
+    const ipAddress =
+      req.ip ||
+      req.headers["x-forwarded-for"]?.split(",")[0] ||
+      req.headers["x-real-ip"] ||
+      req.connection?.remoteAddress ||
+      "unknown";
+
+    // Update agreement signed data
+    user.dataProtectionAgreement.accepted = true;
+    user.dataProtectionAgreement.acceptedAt = new Date();
+    user.dataProtectionAgreement.acceptedIpAddress = ipAddress;
+    user.dataProtectionAgreement.signed = {
+      fullName,
+      designation,
+      date: new Date(),
+      signedAt: new Date(),
+      signedWith2FA: true,
+    };
+
+    await user.save();
+
+    return res.status(200).json({
+      message: "Agreement signed successfully",
+      signed: user.dataProtectionAgreement.signed,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 export {
   registerUser,
   loginUser,
@@ -423,5 +477,5 @@ export {
   verifyResetPasswordTokenAndResetPassword,
   setupTwoFARequest,
   setupTwoFAVerify,
-  // 2FA setup endpoints will be exported below
+  signAgreement,
 };

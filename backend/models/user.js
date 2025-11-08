@@ -22,6 +22,13 @@ const userSchema = new Schema(
       accepted: { type: Boolean, default: false },
       acceptedAt: { type: Date },
       acceptedIpAddress: { type: String },
+      signed: {
+        fullName: { type: String },
+        designation: { type: String },
+        date: { type: Date },
+        signedAt: { type: Date },
+        signedWith2FA: { type: Boolean, default: false },
+      },
     },
   },
   { timestamps: true }

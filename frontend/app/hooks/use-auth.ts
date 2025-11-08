@@ -52,3 +52,10 @@ export const useSetup2FAVerifyMutation = () => {
       postData("/auth/setup-2fa-verify", data),
   });
 };
+
+export const useSignAgreementMutation = () => {
+  return useMutation({
+    mutationFn: (data: { email: string; otp: string; fullName: string; designation: string }) =>
+      postData("/auth/sign-agreement", data),
+  });
+};

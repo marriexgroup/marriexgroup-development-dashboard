@@ -10,6 +10,7 @@ import {
   verifyEmailSchema,
   twoFASetupRequestSchema,
   twoFASetupVerifySchema,
+  signAgreementSchema,
 } from "../libs/validate-schema.js";
 import {
   loginUser,
@@ -17,6 +18,7 @@ import {
   resetPasswordRequest,
   verifyEmail,
   verifyResetPasswordTokenAndResetPassword,
+  signAgreement,
 } from "../controllers/auth-controller.js";
 
 const router = express.Router();
@@ -77,6 +79,15 @@ router.post(
     body: twoFASetupVerifySchema,
   }),
   setupTwoFAVerify
+);
+
+// Sign agreement with 2FA
+router.post(
+  "/sign-agreement",
+  validateRequest({
+    body: signAgreementSchema,
+  }),
+  signAgreement
 );
 
 export default router;
