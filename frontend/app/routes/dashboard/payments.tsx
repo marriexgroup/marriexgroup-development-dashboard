@@ -53,7 +53,7 @@ import { cn } from "@/lib/utils";
 
 const paymentSchema = z.object({
   amount: z.number().min(0.01, "Amount must be greater than 0"),
-  currency: z.enum(["USD", "EUR", "GBP", "INR", "PKR"]).default("USD"),
+  currency: z.enum(["USD", "LKR"]).default("LKR"),
   description: z.string().optional(),
   paymentDate: z.string(),
   status: z.enum(["pending", "completed", "cancelled"]).default("pending"),
@@ -78,7 +78,7 @@ const Payments = () => {
     resolver: zodResolver(paymentSchema),
     defaultValues: {
       amount: 0,
-      currency: "USD",
+      currency: "LKR",
       description: "",
       paymentDate: format(new Date(), "yyyy-MM-dd"),
       status: "pending",
@@ -507,10 +507,7 @@ const Payments = () => {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="EUR">EUR</SelectItem>
-                          <SelectItem value="GBP">GBP</SelectItem>
-                          <SelectItem value="INR">INR</SelectItem>
-                          <SelectItem value="PKR">PKR</SelectItem>
+                          <SelectItem value="LKR">LKR</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

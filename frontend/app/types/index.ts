@@ -200,7 +200,7 @@ export interface WorkspaceProductivityData {
 }
 
 export type PaymentStatus = "pending" | "completed" | "cancelled";
-export type PaymentCurrency = "USD" | "EUR" | "GBP" | "INR" | "PKR";
+export type PaymentCurrency = "USD" | "LKR" ;
 
 export interface Payment {
   _id: string;
