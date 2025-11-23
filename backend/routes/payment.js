@@ -14,7 +14,7 @@ const router = express.Router();
 
 const paymentSchema = z.object({
   amount: z.number().min(0),
-  currency: z.enum(["USD", "EUR", "GBP", "INR", "PKR"]).optional(),
+  currency: z.enum(["USD","LKR"]).optional(),
   description: z.string().optional(),
   paymentDate: z.string().optional(),
   status: z.enum(["pending", "completed", "cancelled"]).optional(),

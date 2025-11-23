@@ -10,7 +10,7 @@ const paymentSchema = new Schema(
     currency: {
       type: String,
       default: "USD",
-      enum: ["USD", "EUR", "GBP", "INR", "PKR"],
+      enum: ["USD", "LKR"],
     },
     description: {
       type: String,
