@@ -8,6 +8,9 @@ import type { Workspace } from "@/types";
 import { useState } from "react";
 import { Navigate, Outlet } from "react-router";
 
+import { WorkTimer } from "@/components/work-tracking/work-timer";
+import { SocketProvider } from "@/provider/socket-context";
+
 export const clientLoader = async () => {
   try {
     const [workspaces] = await Promise.all([fetchData("/workspaces")]);
@@ -16,7 +19,11 @@ export const clientLoader = async () => {
     console.log(error);
   }
 };
-const DashboardLayout = () => {
+
+
+// ... (imports)
+
+const DashboardLayoutContent = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(
@@ -57,7 +64,17 @@ const DashboardLayout = () => {
         isCreatingWorkspace={isCreatingWorkspace}
         setIsCreatingWorkspace={setIsCreatingWorkspace}
       />
+
+      <WorkTimer />
     </div>
+  );
+};
+
+const DashboardLayout = () => {
+  return (
+    <SocketProvider>
+      <DashboardLayoutContent />
+    </SocketProvider>
   );
 };
 

@@ -30,6 +30,7 @@ const userSchema = new Schema(
         signedWith2FA: { type: Boolean, default: false },
       },
     },
+    isSuperAdmin: { type: Boolean, default: false }
   },
   { timestamps: true }
 );

@@ -8,7 +8,22 @@ import routes from "./routes/index.js";
 
 dotenv.config();
 
+import http from "http";
+import { Server } from "socket.io";
+import { socketHandler } from "./socket/socket-handler.js";
+
 const app = express();
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL,
+    methods: ["GET", "POST", "DELETE", "PUT"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  },
+});
+
+socketHandler(io);
 
 app.use(
   cors({
@@ -50,6 +65,6 @@ app.use((req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

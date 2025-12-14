@@ -58,6 +58,15 @@ export const SidebarComponent = ({
       href: `/payments`,
       icon: DollarSign,
     },
+    ...(user?.isSuperAdmin
+      ? [
+        {
+          title: "All Users",
+          href: "/users",
+          icon: Users,
+        },
+      ]
+      : []),
     // {
     //   title: "Settings",
     //   href: "/settings",

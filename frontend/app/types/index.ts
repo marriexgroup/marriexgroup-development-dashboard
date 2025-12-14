@@ -6,6 +6,7 @@ export interface User {
   isEmailVerified: boolean;
   updatedAt: Date;
   profilePicture?: string;
+  isSuperAdmin?: boolean;
   dataProtectionAgreement?: {
     accepted: boolean;
     acceptedAt?: Date;
@@ -92,7 +93,7 @@ export interface Task {
   subtasks?: Subtask[];
   watchers?: User[];
   attachments?: Attachment[];
-  images?:any[];
+  images?: any[];
 }
 
 export interface Attachment {
@@ -200,7 +201,7 @@ export interface WorkspaceProductivityData {
 }
 
 export type PaymentStatus = "pending" | "completed" | "cancelled";
-export type PaymentCurrency = "USD" | "LKR" ;
+export type PaymentCurrency = "USD" | "LKR";
 
 export interface Payment {
   _id: string;

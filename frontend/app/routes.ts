@@ -18,6 +18,7 @@ export default [
   layout("routes/dashboard/dashboard-layout.tsx", [
     route("dashboard", "routes/dashboard/index.tsx"),
     route("workspaces", "routes/dashboard/workspaces/index.tsx"),
+    route("users", "routes/dashboard/all-users.tsx"),
     route(
       "workspaces/:workspaceId",
       "routes/dashboard/workspaces/workspace-details.tsx"
