@@ -46,4 +46,15 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
+const adminMiddleware = (req, res, next) => {
+  if (req.user && req.user.isSuperAdmin) {
+    next();
+  } else {
+    res.status(403).json({
+      message: "Not authorized as an admin",
+    });
+  }
+};
+
+export { authMiddleware as protect, adminMiddleware };
 export default authMiddleware;

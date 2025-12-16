@@ -13,7 +13,9 @@ import { useAllUsers } from "@/hooks/use-admin";
 import { useAuth } from "@/provider/auth-context";
 import { useSocket } from "@/provider/socket-context";
 import { formatDate } from "@/utils/format-date";
-import { Clock, Loader2, Signal } from "lucide-react";
+import { WorkHistorySheet } from "@/components/work-tracking/work-history-sheet";
+import { Button } from "@/components/ui/button";
+import { Clock, History, Loader2, Signal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router";
 
@@ -49,6 +51,8 @@ export default function AllUsers() {
     const { user } = useAuth();
     const { data: users, isLoading } = useAllUsers();
     const { onlineUsers, userWorkStatus } = useSocket();
+    const [selectedUser, setSelectedUser] = useState<{ id: string; name: string } | null>(null);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
     if (!user?.isSuperAdmin) {
         return <Navigate to="/dashboard" />;
@@ -146,9 +150,31 @@ export default function AllUsers() {
                                                 <div className="flex items-center gap-2 text-blue-600 font-medium">
                                                     <Clock className="h-4 w-4 animate-pulse" />
                                                     <UserTimer startTime={workStatus?.startTime} />
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 ml-2"
+                                                        onClick={() => {
+                                                            setSelectedUser({ id: userData._id, name: userData.name });
+                                                            setIsHistoryOpen(true);
+                                                        }}
+                                                    >
+                                                        <History className="h-4 w-4" />
+                                                    </Button>
                                                 </div>
                                             ) : (
-                                                <span className="text-sm text-muted-foreground">-</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 text-muted-foreground"
+                                                    onClick={() => {
+                                                        setSelectedUser({ id: userData._id, name: userData.name });
+                                                        setIsHistoryOpen(true);
+                                                    }}
+                                                >
+                                                    <History className="h-4 w-4 mr-2" />
+                                                    History
+                                                </Button>
                                             )}
                                         </TableCell>
                                         <TableCell>
@@ -168,6 +194,13 @@ export default function AllUsers() {
                     </Table>
                 </CardContent>
             </Card>
-        </div>
+
+            <WorkHistorySheet
+                userId={selectedUser?.id}
+                userName={selectedUser?.name || ""}
+                open={isHistoryOpen}
+                onOpenChange={setIsHistoryOpen}
+            />
+        </div >
     );
 }
