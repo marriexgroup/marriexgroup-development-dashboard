@@ -216,6 +216,7 @@ export interface Payment {
   createdBy: User;
   notes?: string;
   invoiceNumber?: string;
+  slipImage?: string;
   createdAt: Date;
   updatedAt: Date;
 }

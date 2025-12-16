@@ -39,8 +39,8 @@ import { useGetWorkspacesQuery } from "@/hooks/use-workspace";
 import { useGetWorkspaceQuery } from "@/hooks/use-workspace";
 import type { Payment, Workspace, Project, Task } from "@/types";
 import { format } from "date-fns";
-import { DollarSign, Plus, Trash2, Edit } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { DollarSign, Plus, Trash2, Edit, Image as ImageIcon, X, Upload } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -73,6 +73,10 @@ const Payments = () => {
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [availableTasks, setAvailableTasks] = useState<Task[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
@@ -130,7 +134,7 @@ const Payments = () => {
       const tasks: Task[] = [];
       workspaceDetails.projects.forEach((project) => {
         if (selectedProjects.includes(project._id) && project.tasks) {
-            let filteredTasks = project.tasks.filter((task) => task.status == "Done");
+          let filteredTasks = project.tasks.filter((task) => task.status == "Done");
           tasks.push(...filteredTasks);
         }
       });
@@ -158,7 +162,7 @@ const Payments = () => {
       : [...selectedProjects, projectId];
     setSelectedProjects(newSelected);
     form.setValue("projects", newSelected);
-    
+
     // Remove tasks from unselected projects
     if (!newSelected.includes(projectId)) {
       const project = workspaceDetails?.projects.find((p) => p._id === projectId);
@@ -168,6 +172,51 @@ const Payments = () => {
         setSelectedTasks(newSelectedTasks);
         form.setValue("tasks", newSelectedTasks);
       }
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please upload an image file");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+      setSlipFile(file);
+      setSlipPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast.error("Please upload an image file");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+      setSlipFile(file);
+      setSlipPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeFile = () => {
+    setSlipFile(null);
+    if (slipPreview) {
+      URL.revokeObjectURL(slipPreview);
+      setSlipPreview(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -185,6 +234,7 @@ const Payments = () => {
         ...data,
         projects: selectedProjects,
         tasks: selectedTasks,
+        slipImage: slipFile,
       },
       {
         onSuccess: () => {
@@ -193,6 +243,8 @@ const Payments = () => {
           setSelectedWorkspaceId("");
           setSelectedProjects([]);
           setSelectedTasks([]);
+          setSlipFile(null);
+          setSlipPreview(null);
           setIsCreateDialogOpen(false);
         },
         onError: (error: any) => {
@@ -360,6 +412,20 @@ const Payments = () => {
                     <div className="mt-3 p-2 bg-gray-50 rounded text-sm">
                       <p className="font-medium mb-1">Notes:</p>
                       <p className="text-gray-600">{payment.notes}</p>
+                    </div>
+                  )}
+
+                  {payment.slipImage && (
+                    <div className="mt-3">
+                      <a
+                        href={payment.slipImage}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        View Payment Slip
+                      </a>
                     </div>
                   )}
                 </CardContent>
@@ -630,6 +696,56 @@ const Payments = () => {
                 )}
               />
 
+              <div className="space-y-3">
+                <FormLabel>Payment Slip</FormLabel>
+                <div
+                  className={cn(
+                    "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
+                    isDragOver ? "border-primary bg-primary/5" : "border-gray-300 hover:border-gray-400"
+                  )}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
+                  onDrop={handleDrop}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+
+                  {slipPreview ? (
+                    <div className="relative inline-block">
+                      <img
+                        src={slipPreview}
+                        alt="Slip preview"
+                        className="h-32 object-contain rounded border"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFile();
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-gray-500">
+                      <Upload className="h-8 w-8" />
+                      <p className="text-sm">Click to upload or drag and drop</p>
+                      <p className="text-xs">PNG, JPG up to 5MB</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <DialogFooter>
                 <Button
                   type="button"
@@ -640,6 +756,8 @@ const Payments = () => {
                     setSelectedWorkspaceId("");
                     setSelectedProjects([]);
                     setSelectedTasks([]);
+                    setSlipFile(null);
+                    setSlipPreview(null);
                   }}
                 >
                   Cancel

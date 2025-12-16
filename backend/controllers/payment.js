@@ -1,3 +1,4 @@
+import { uploadImageToS3 } from "../libs/s3-upload.js";
 import Payment from "../models/payment.js";
 import Workspace from "../models/workspace.js";
 import Project from "../models/project.js";
@@ -5,7 +6,7 @@ import Task from "../models/task.js";
 
 const createPayment = async (req, res) => {
   try {
-    const {
+    let {
       amount,
       currency,
       description,
@@ -17,6 +18,35 @@ const createPayment = async (req, res) => {
       notes,
       invoiceNumber,
     } = req.body;
+
+    // Handle stringified fields (from FormData)
+    if (typeof projects === 'string') {
+      try {
+        projects = JSON.parse(projects);
+      } catch (e) {
+        projects = [];
+      }
+    }
+    if (typeof tasks === 'string') {
+      try {
+        tasks = JSON.parse(tasks);
+      } catch (e) {
+        tasks = [];
+      }
+    }
+
+    let slipImage = null;
+    if (req.file) {
+      try {
+        const uploadResult = await uploadImageToS3(req.file.buffer, req.file.originalname, req.file.mimetype);
+        slipImage = uploadResult.location;
+      } catch (error) {
+        return res.status(500).json({
+          message: "Failed to upload slip image",
+          error: error.message
+        });
+      }
+    }
 
     // Validate workspace exists and user is owner
     const workspaceDoc = await Workspace.findById(workspace);
@@ -80,6 +110,7 @@ const createPayment = async (req, res) => {
       workspace,
       notes,
       invoiceNumber,
+      slipImage,
       createdBy: req.user._id,
     });
 

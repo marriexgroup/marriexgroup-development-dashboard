@@ -59,6 +59,10 @@ const paymentSchema = new Schema(
       unique: true,
       sparse: true,
     },
+    slipImage: {
+      type: String,
+      trim: true,
+    },
   },
   { timestamps: true }
 );

@@ -1,4 +1,5 @@
 import express from "express";
+import { uploadPaymentSlip, handleUploadError } from "../middleware/upload-middleware.js";
 import authMiddleware from "../middleware/auth-middleware.js";
 import { validateRequest } from "zod-express-middleware";
 import { z } from "zod";
@@ -14,7 +15,7 @@ const router = express.Router();
 
 const paymentSchema = z.object({
   amount: z.number().min(0),
-  currency: z.enum(["USD","LKR"]).optional(),
+  currency: z.enum(["USD", "LKR"]).optional(),
   description: z.string().optional(),
   paymentDate: z.string().optional(),
   status: z.enum(["pending", "completed", "cancelled"]).optional(),
@@ -25,12 +26,34 @@ const paymentSchema = z.object({
   invoiceNumber: z.string().optional(),
 });
 
+const validatePaymentCreation = (req, res, next) => {
+  try {
+    const { amount, workspace, paymentDate } = req.body;
+
+    // Validate required fields
+    if (!amount) {
+      return res.status(400).json({ message: "Amount is required" });
+    }
+    if (!workspace || workspace.trim().length === 0) {
+      return res.status(400).json({ message: "Workspace is required" });
+    }
+    if (!paymentDate) {
+      return res.status(400).json({ message: "Payment date is required" });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Validation error:', error);
+    return res.status(400).json({ message: "Invalid request data" });
+  }
+};
+
 router.post(
   "/",
   authMiddleware,
-  validateRequest({
-    body: paymentSchema,
-  }),
+  uploadPaymentSlip,
+  handleUploadError,
+  validatePaymentCreation,
   createPayment
 );
 

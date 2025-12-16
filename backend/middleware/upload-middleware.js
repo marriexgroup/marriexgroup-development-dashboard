@@ -27,7 +27,7 @@ const upload = multer({
 export const uploadTaskImages = (req, res, next) => {
     console.log('Multer middleware - Content-Type:', req.headers['content-type']);
     console.log('Multer middleware - Raw body before multer:', req.body);
-    
+
     upload.array('images', 10)(req, res, (err) => {
         if (err) {
             console.log('Multer error:', err);
@@ -37,6 +37,17 @@ export const uploadTaskImages = (req, res, next) => {
         console.log('Multer middleware - req.files:', req.files);
         console.log('Multer middleware - assignees value:', req.body.assignees);
         console.log('Multer middleware - assignees type:', typeof req.body.assignees);
+        next();
+    });
+};
+
+// Middleware for payment slip upload (single image)
+export const uploadPaymentSlip = (req, res, next) => {
+    upload.single('slipImage')(req, res, (err) => {
+        if (err) {
+            console.log('Multer error:', err);
+            return next(err);
+        }
         next();
     });
 };
@@ -60,13 +71,13 @@ export const handleUploadError = (error, req, res, next) => {
             });
         }
     }
-    
+
     if (error.message === 'Only image files are allowed!') {
         return res.status(400).json({
             message: 'Only image files are allowed!'
         });
     }
-    
+
     next(error);
 };
 
