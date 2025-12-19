@@ -29,6 +29,7 @@ import { useAuth } from "@/provider/auth-context";
 import type { User } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Loader, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -63,8 +64,11 @@ const Profile = () => {
     data: User;
     isPending: boolean;
   };
-  const { logout } = useAuth();
+  const { logout, updateUser } = useAuth();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const form = useForm<ChangePasswordFormData>({
     resolver: zodResolver(changePasswordSchema),
@@ -94,6 +98,19 @@ const Profile = () => {
     error,
   } = useChangePassword();
 
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File is too large. Max size is 5MB.");
+        return;
+      }
+      setSelectedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
+  };
+
   const handlePasswordChange = (values: ChangePasswordFormData) => {
     changePassword(values, {
       onSuccess: () => {
@@ -117,20 +134,29 @@ const Profile = () => {
   };
 
   const handleProfileFormSubmit = (values: ProfileFormData) => {
-    updateUserProfile(
-      { name: values.name, profilePicture: values.profilePicture || "" },
-      {
-        onSuccess: () => {
-          toast.success("Profile updated successfully");
-        },
-        onError: (error: any) => {
-          const errorMessage =
-            error.response?.data?.error || "Failed to update profile";
-          toast.error(errorMessage);
-          console.log(error);
-        },
-      }
-    );
+    let data: ProfileFormData | FormData = values;
+
+    if (selectedFile) {
+      const formData = new FormData();
+      formData.append("name", values.name);
+      formData.append("profilePicture", selectedFile);
+      data = formData;
+    }
+
+    updateUserProfile(data, {
+      onSuccess: (updatedUser: User) => {
+        toast.success("Profile updated successfully");
+        updateUser(updatedUser);
+        setSelectedFile(null);
+        setPreviewUrl(null);
+      },
+      onError: (error: any) => {
+        const errorMessage =
+          error.response?.data?.error || "Failed to update profile";
+        toast.error(errorMessage);
+        console.log(error);
+      },
+    });
   };
 
   if (isPending)
@@ -166,10 +192,7 @@ const Profile = () => {
               <div className="flex items-center space-x-4 mb-6">
                 <Avatar className="h-20 w-20 bg-gray-600">
                   <AvatarImage
-                    src={
-                      profileForm.watch("profilePicture") ||
-                      user?.profilePicture
-                    }
+                    src={previewUrl || user?.profilePicture}
                     alt={user?.name}
                   />
                   <AvatarFallback className="text-xl">
@@ -181,18 +204,17 @@ const Profile = () => {
                     id="avatar-upload"
                     type="file"
                     accept="image/*"
-                    // onChange={handleAvatarChange}
-                    // disabled={uploading || isUpdatingProfile}
+                    ref={fileInputRef}
+                    onChange={handleAvatarChange}
+                    disabled={isUpdatingProfile}
                     style={{ display: "none" }}
                   />
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={() =>
-                      document.getElementById("avatar-upload")?.click()
-                    }
-                    // disabled={uploading || isUpdatingProfile}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUpdatingProfile}
                   >
                     Change Avatar
                   </Button>

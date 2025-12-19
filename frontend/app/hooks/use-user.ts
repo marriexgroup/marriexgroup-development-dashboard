@@ -23,6 +23,7 @@ export const useChangePassword = () => {
 
 export const useUpdateUserProfile = () => {
   return useMutation({
-    mutationFn: (data: ProfileFormData) => updateData("/users/profile", data),
+    mutationFn: (data: ProfileFormData | FormData): Promise<User> =>
+      updateData<User>("/users/profile", data),
   });
 };

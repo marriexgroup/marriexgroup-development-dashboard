@@ -1,5 +1,6 @@
 import User from "../models/user.js";
 import bcrypt from "bcrypt";
+import { uploadImageToS3 } from "../libs/s3-upload.js";
 
 const getUserProfile = async (req, res) => {
   try {
@@ -22,7 +23,11 @@ const getUserProfile = async (req, res) => {
 
 const updateUserProfile = async (req, res) => {
   try {
-    const { name, profilePicture } = req.body;
+    const { name } = req.body;
+    let { profilePicture } = req.body;
+
+    console.log("Update Profile - Body:", req.body);
+    console.log("Update Profile - File:", req.file);
 
     const user = await User.findById(req.user._id);
 
@@ -30,8 +35,26 @@ const updateUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    user.name = name;
-    user.profilePicture = profilePicture;
+    if (req.file) {
+      try {
+        const uploadResult = await uploadImageToS3(
+          req.file.buffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+        profilePicture = uploadResult.location;
+      } catch (error) {
+        return res.status(500).json({
+          message: "Failed to upload profile picture",
+          error: error.message,
+        });
+      }
+    }
+
+    user.name = name || user.name;
+    if (profilePicture !== undefined) {
+      user.profilePicture = profilePicture;
+    }
 
     await user.save();
 

@@ -1,6 +1,10 @@
 import express from "express";
 import authenticateUser from "../middleware/auth-middleware.js";
 import {
+  uploadProfilePicture,
+  handleUploadError,
+} from "../middleware/upload-middleware.js";
+import {
   changePassword,
   getUserProfile,
   updateUserProfile,
@@ -14,10 +18,12 @@ router.get("/profile", authenticateUser, getUserProfile);
 router.put(
   "/profile",
   authenticateUser,
+  uploadProfilePicture,
+  handleUploadError,
   validateRequest({
     body: z.object({
       name: z.string(),
-      profilePicture: z.string().optional(),
+      profilePicture: z.any().optional(),
     }),
   }),
   updateUserProfile

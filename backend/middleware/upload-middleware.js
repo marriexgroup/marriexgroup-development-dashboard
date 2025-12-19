@@ -52,6 +52,17 @@ export const uploadPaymentSlip = (req, res, next) => {
     });
 };
 
+// Middleware for profile picture upload (single image)
+export const uploadProfilePicture = (req, res, next) => {
+    upload.single('profilePicture')(req, res, (err) => {
+        if (err) {
+            console.log('Multer error:', err);
+            return next(err);
+        }
+        next();
+    });
+};
+
 // Error handling middleware for multer
 export const handleUploadError = (error, req, res, next) => {
     if (error instanceof multer.MulterError) {
