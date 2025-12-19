@@ -140,7 +140,7 @@ export function WorkHistorySheet({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[100vw] h-screen w-screen rounded-none flex flex-col p-0 gap-0">
+            <DialogContent className="max-w-[98vw] w-full h-[98vh] rounded-lg flex flex-col p-0 gap-0 sm:max-w-[98vw]">
                 <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
                     <DialogTitle className="text-xl">Work History - {userName}</DialogTitle>
                     <DialogDescription>
@@ -228,6 +228,7 @@ export function WorkHistorySheet({
                                         <TableRow>
                                             <TableHead className="w-[200px]">Date</TableHead>
                                             <TableHead>Time Range</TableHead>
+                                            <TableHead className="text-center">Checkpoints</TableHead>
                                             <TableHead className="text-right">Duration</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -251,6 +252,22 @@ export function WorkHistorySheet({
                                                                     : "Ongoing"}
                                                             </span>
                                                         </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        {session.checkpoints && session.checkpoints.length > 0 ? (
+                                                            <div className="flex flex-col items-center">
+                                                                {session.checkpoints.filter((c: any) => c.status === "passed").length > 0 && <span className="text-xs font-bold text-green-600 dark:text-green-400">
+                                                                    {session.checkpoints.filter((c: any) => c.status === "passed").length} Passed
+                                                                </span>}
+                                                                {session.checkpoints.some((c: any) => c.status === "failed") && (
+                                                                    <span className="text-[10px] text-destructive">
+                                                                        {session.checkpoints.filter((c: any) => c.status === "failed").length} Failed
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground">-</span>
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono font-medium">
                                                         {session.endTime

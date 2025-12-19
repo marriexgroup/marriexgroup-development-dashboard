@@ -20,6 +20,23 @@ const workSessionSchema = new mongoose.Schema(
             enum: ["active", "completed"],
             default: "active",
         },
+        checkpoints: [
+            {
+                status: {
+                    type: String,
+                    enum: ["passed", "failed"],
+                    required: true,
+                },
+                time: {
+                    type: Date,
+                    default: Date.now,
+                },
+                otpVerified: {
+                    type: Boolean,
+                    default: false,
+                },
+            },
+        ],
     },
     { timestamps: true }
 );

@@ -82,7 +82,7 @@ export const SidebarComponent = ({
       )}
     >
       <div className="flex h-14 items-center border-b px-4 mb-4">
-        <Link to="/dashboard" className="flex items-center">
+        <Link to="#" className="flex items-center">
           {!isCollapsed && (
             <div className="flex items-center gap-2">
               <Wrench className="size-6 text-blue-600" />

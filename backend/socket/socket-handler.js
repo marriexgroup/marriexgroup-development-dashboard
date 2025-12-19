@@ -1,7 +1,62 @@
 import WorkSession from "../models/work-session.js";
+import User from "../models/user.js";
+import { authenticator as totp } from "otplib";
 
 const onlineUsers = new Map(); // userId -> { socketId, ...info }
-const activeWorkSessions = new Map(); // userId -> startTime
+const activeWorkSessions = new Map(); // userId -> { startTime, checkpointTimer, failureTimer }
+
+const recordFailedCheckpoint = async (userId) => {
+    try {
+        await WorkSession.findOneAndUpdate(
+            { user: userId, status: "active" },
+            {
+                $push: {
+                    checkpoints: {
+                        status: "failed",
+                        time: new Date(),
+                        otpVerified: false
+                    }
+                }
+            }
+        );
+    } catch (error) {
+        console.error("Error recording failed checkpoint:", error);
+    }
+};
+
+const scheduleCheckpoint = (io, socket, userId) => {
+    // Keep user's test timing for now
+    const min = 45 * 60 * 1000;
+    const max = 120 * 60 * 1000;
+    const randomDelay = Math.floor(Math.random() * (max - min + 1)) + min;
+
+    console.log(`Scheduling checkpoint for ${userId} in ${randomDelay / 1000} seconds`);
+
+    const timer = setTimeout(() => {
+        socket.emit("checkpoint-request");
+
+        // Start 2-minute failure timer
+        const failureTimer = setTimeout(async () => {
+            console.log(`Checkpoint timeout for ${userId}`);
+            await recordFailedCheckpoint(userId);
+            socket.emit("checkpoint-timeout", { message: "Checkpoint timed out after 2 minutes" });
+
+            // Schedule next checkpoint after failure
+            const sessionData = activeWorkSessions.get(userId);
+            if (sessionData) {
+                sessionData.checkpointTimer = scheduleCheckpoint(io, socket, userId);
+                sessionData.failureTimer = null;
+            }
+        }, 2 * 60 * 1000); // 2 minutes
+
+        const sessionData = activeWorkSessions.get(userId);
+        if (sessionData) {
+            sessionData.failureTimer = failureTimer;
+        }
+    }, randomDelay);
+
+    return timer;
+};
 
 export const socketHandler = (io) => {
     io.on("connection", async (socket) => {
@@ -21,7 +76,12 @@ export const socketHandler = (io) => {
                 });
 
                 if (activeSession) {
-                    activeWorkSessions.set(userId, activeSession.startTime);
+                    const checkpointTimer = scheduleCheckpoint(io, socket, userId);
+                    activeWorkSessions.set(userId, {
+                        startTime: activeSession.startTime,
+                        checkpointTimer,
+                        failureTimer: null
+                    });
                     socket.emit("work-status", { isWorking: true, startTime: activeSession.startTime });
                     io.emit("user-work-update", { userId, isWorking: true, startTime: activeSession.startTime });
                 }
@@ -44,7 +104,12 @@ export const socketHandler = (io) => {
                     status: "active",
                 });
 
-                activeWorkSessions.set(userId, newSession.startTime);
+                const checkpointTimer = scheduleCheckpoint(io, socket, userId);
+                activeWorkSessions.set(userId, {
+                    startTime: newSession.startTime,
+                    checkpointTimer,
+                    failureTimer: null
+                });
 
                 io.emit("user-work-update", {
                     userId,
@@ -69,6 +134,13 @@ export const socketHandler = (io) => {
                 );
 
                 if (session) {
+                    const sessionData = activeWorkSessions.get(userId);
+                    if (sessionData?.checkpointTimer) {
+                        clearTimeout(sessionData.checkpointTimer);
+                    }
+                    if (sessionData?.failureTimer) {
+                        clearTimeout(sessionData.failureTimer);
+                    }
                     activeWorkSessions.delete(userId);
                     io.emit("user-work-update", {
                         userId,
@@ -79,6 +151,54 @@ export const socketHandler = (io) => {
                 }
             } catch (error) {
                 console.error("Stop work error:", error);
+            }
+        });
+
+        socket.on("verify-checkpoint", async (data) => {
+            try {
+                const { otp } = data;
+                const user = await User.findById(userId).select("+twoFASecret");
+
+                if (!user || !user.twoFASecret) {
+                    return socket.emit("checkpoint-error", { message: "Authenticator not configured" });
+                }
+
+                const isValid = totp.verify({ token: otp, secret: user.twoFASecret });
+
+                const status = isValid ? "passed" : "failed";
+
+                await WorkSession.findOneAndUpdate(
+                    { user: userId, status: "active" },
+                    {
+                        $push: {
+                            checkpoints: {
+                                status,
+                                time: new Date(),
+                                otpVerified: isValid
+                            }
+                        }
+                    }
+                );
+
+                const sessionData = activeWorkSessions.get(userId);
+                if (sessionData?.failureTimer) {
+                    clearTimeout(sessionData.failureTimer);
+                    sessionData.failureTimer = null;
+                }
+
+                if (isValid) {
+                    socket.emit("checkpoint-success");
+                    // Schedule next checkpoint
+                    if (sessionData) {
+                        if (sessionData.checkpointTimer) clearTimeout(sessionData.checkpointTimer);
+                        sessionData.checkpointTimer = scheduleCheckpoint(io, socket, userId);
+                    }
+                } else {
+                    socket.emit("checkpoint-error", { message: "Invalid authenticator code" });
+                }
+            } catch (error) {
+                console.error("Checkpoint verification error:", error);
+                socket.emit("checkpoint-error", { message: "Verification failed" });
             }
         });
 
