@@ -26,10 +26,8 @@ const recordFailedCheckpoint = async (userId) => {
 
 const scheduleCheckpoint = (io, socket, userId) => {
     // Keep user's test timing for now
-    // const min = 45 * 60 * 1000;
-    // const max = 120 * 60 * 1000;
-    const min = 1 * 60 * 100;
-    const max = 2 * 60 * 100;
+    const min = 30 * 60 * 1000;
+    const max = 120 * 60 * 1000;
     const randomDelay = Math.floor(Math.random() * (max - min + 1)) + min;
 
     console.log(`Scheduling checkpoint for ${userId} in ${randomDelay / 1000} seconds`);

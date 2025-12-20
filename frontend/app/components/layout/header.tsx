@@ -29,7 +29,8 @@ export const Header = ({
   const navigate = useNavigate();
 
   const { user, logout } = useAuth();
-  const { workspaces } = useLoaderData() as { workspaces: Workspace[] };
+  const loaderData = useLoaderData() as { workspaces: Workspace[] } | undefined;
+  const workspaces = loaderData?.workspaces || [];
   const isOnWorkspacePage = useLocation().pathname.includes("/workspace");
 
   const handleOnClick = (workspace: Workspace) => {
