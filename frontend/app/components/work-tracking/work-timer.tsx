@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useSocket } from "@/provider/socket-context";
 import { Play, Square, ShieldCheck, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
     Dialog,
@@ -23,6 +23,35 @@ export const WorkTimer = () => {
     const [otp, setOtp] = useState("");
     const [isVerifying, setIsVerifying] = useState(false);
     const [timeLeft, setTimeLeft] = useState(120); // 120 seconds for countdown
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    useEffect(() => {
+        // Initialize audio
+        audioRef.current = new Audio("/tone-loop-2976.m4a");
+        audioRef.current.loop = true;
+
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
+        };
+    }, []);
+
+    const playNotificationSound = () => {
+        if (audioRef.current) {
+            audioRef.current.play().catch(err => {
+                console.error("Failed to play notification sound:", err);
+            });
+        }
+    };
+
+    const stopNotificationSound = () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+    };
 
     useEffect(() => {
         if (!socket) return;
@@ -49,6 +78,7 @@ export const WorkTimer = () => {
             setStartTime(null);
             setElapsedTime("00:00:00");
             setShowCheckpoint(false);
+            stopNotificationSound();
             toast.success("Work session stopped");
         });
 
@@ -56,7 +86,7 @@ export const WorkTimer = () => {
             setShowCheckpoint(true);
             setOtp("");
             setTimeLeft(120);
-            // Play a notification sound or vibration if needed
+            playNotificationSound();
             toast.info("Checkpoint required: Please enter your authenticator code within 2 minutes", {
                 duration: 10000,
             });
@@ -65,12 +95,14 @@ export const WorkTimer = () => {
         socket.on("checkpoint-timeout", (data: { message: string }) => {
             setShowCheckpoint(false);
             setOtp("");
+            stopNotificationSound();
             toast.error(data.message || "Checkpoint timed out");
         });
 
         socket.on("checkpoint-success", () => {
             setIsVerifying(false);
             setShowCheckpoint(false);
+            stopNotificationSound();
             toast.success("Checkpoint verified successfully");
         });
 
