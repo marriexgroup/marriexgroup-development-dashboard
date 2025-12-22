@@ -24,6 +24,38 @@ const recordFailedCheckpoint = async (userId) => {
     }
 };
 
+const stopWorkSession = async (io, socket, userId) => {
+    try {
+        const session = await WorkSession.findOneAndUpdate(
+            { user: userId, status: "active" },
+            { status: "completed", endTime: new Date() },
+            { new: true }
+        );
+
+        if (session) {
+            const sessionData = activeWorkSessions.get(userId);
+            if (sessionData?.checkpointTimer) {
+                clearTimeout(sessionData.checkpointTimer);
+            }
+            if (sessionData?.failureTimer) {
+                clearTimeout(sessionData.failureTimer);
+            }
+            activeWorkSessions.delete(userId);
+            io.emit("user-work-update", {
+                userId,
+                isWorking: false,
+                lastSessionDuration: (new Date() - new Date(session.startTime))
+            });
+            socket.emit("work-stopped");
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error("Stop work session error:", error);
+        return false;
+    }
+};
+
 const scheduleCheckpoint = (io, socket, userId) => {
     // Keep user's test timing for now
     const min = 30 * 60 * 1000;
@@ -35,19 +67,15 @@ const scheduleCheckpoint = (io, socket, userId) => {
     const timer = setTimeout(() => {
         socket.emit("checkpoint-request");
 
-        // Start 2-minute failure timer
+        // Start 10-second failure timer for testing
         const failureTimer = setTimeout(async () => {
             console.log(`Checkpoint timeout for ${userId}`);
             await recordFailedCheckpoint(userId);
-            socket.emit("checkpoint-timeout", { message: "Checkpoint timed out after 2 minutes" });
+            socket.emit("checkpoint-timeout", { message: "Checkpoint timed out. Work session stopped." });
 
-            // Schedule next checkpoint after failure
-            const sessionData = activeWorkSessions.get(userId);
-            if (sessionData) {
-                sessionData.checkpointTimer = scheduleCheckpoint(io, socket, userId);
-                sessionData.failureTimer = null;
-            }
-        }, 2 * 60 * 1000); // 2 minutes
+            // Stop work session on timeout
+            await stopWorkSession(io, socket, userId);
+        }, 10000); // 10 seconds
 
         const sessionData = activeWorkSessions.get(userId);
         if (sessionData) {
@@ -126,32 +154,7 @@ export const socketHandler = (io) => {
         });
 
         socket.on("stop-work", async () => {
-            try {
-                const session = await WorkSession.findOneAndUpdate(
-                    { user: userId, status: "active" },
-                    { status: "completed", endTime: new Date() },
-                    { new: true }
-                );
-
-                if (session) {
-                    const sessionData = activeWorkSessions.get(userId);
-                    if (sessionData?.checkpointTimer) {
-                        clearTimeout(sessionData.checkpointTimer);
-                    }
-                    if (sessionData?.failureTimer) {
-                        clearTimeout(sessionData.failureTimer);
-                    }
-                    activeWorkSessions.delete(userId);
-                    io.emit("user-work-update", {
-                        userId,
-                        isWorking: false,
-                        lastSessionDuration: (new Date() - new Date(session.startTime))
-                    });
-                    socket.emit("work-stopped");
-                }
-            } catch (error) {
-                console.error("Stop work error:", error);
-            }
+            await stopWorkSession(io, socket, userId);
         });
 
         socket.on("verify-checkpoint", async (data) => {
@@ -194,7 +197,8 @@ export const socketHandler = (io) => {
                         sessionData.checkpointTimer = scheduleCheckpoint(io, socket, userId);
                     }
                 } else {
-                    socket.emit("checkpoint-error", { message: "Invalid authenticator code" });
+                    socket.emit("checkpoint-error", { message: "Invalid authenticator code. Work session stopped." });
+                    await stopWorkSession(io, socket, userId);
                 }
             } catch (error) {
                 console.error("Checkpoint verification error:", error);
