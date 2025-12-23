@@ -1,6 +1,7 @@
 import WorkSession from "../models/work-session.js";
 import User from "../models/user.js";
 import { authenticator as totp } from "otplib";
+import mongoose from "mongoose";
 
 const onlineUsers = new Map(); // userId -> { socketId, ...info }
 const activeWorkSessions = new Map(); // userId -> { startTime, checkpointTimer, failureTimer }
@@ -87,38 +88,82 @@ const scheduleCheckpoint = (io, socket, userId) => {
 };
 
 export const socketHandler = (io) => {
-    io.on("connection", async (socket) => {
-        console.log("New client connected:", socket.id);
-
+    io.use(async (socket, next) => {
+        // Validate userId during handshake
         const userId = socket.handshake.query.userId;
+        
+        if (!userId) {
+            console.error("Socket connection rejected: userId missing");
+            return next(new Error("userId is required"));
+        }
 
-        if (userId) {
-            onlineUsers.set(userId, { socketId: socket.id, lastSeen: new Date() });
-            io.emit("update-online-users", Array.from(onlineUsers.keys()));
+        // Validate userId is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            console.error("Socket connection rejected: invalid userId format", userId);
+            return next(new Error("Invalid userId format"));
+        }
 
-            // Check if user has an active session in DB
-            try {
-                const activeSession = await WorkSession.findOne({
-                    user: userId,
-                    status: "active"
-                });
-
-                if (activeSession) {
-                    const checkpointTimer = scheduleCheckpoint(io, socket, userId);
-                    activeWorkSessions.set(userId, {
-                        startTime: activeSession.startTime,
-                        checkpointTimer,
-                        failureTimer: null
-                    });
-                    socket.emit("work-status", { isWorking: true, startTime: activeSession.startTime });
-                    io.emit("user-work-update", { userId, isWorking: true, startTime: activeSession.startTime });
-                }
-            } catch (err) {
-                console.error("Error fetching active session:", err);
+        // Verify user exists in database
+        try {
+            const user = await User.findById(userId);
+            if (!user) {
+                console.error("Socket connection rejected: user not found", userId);
+                return next(new Error("User not found"));
             }
+            
+            // Store userId on socket for later use
+            socket.userId = userId;
+            next();
+        } catch (error) {
+            console.error("Socket connection error:", error);
+            return next(new Error("Authentication failed"));
+        }
+    });
+
+    io.on("connection", async (socket) => {
+        const userId = socket.userId; // Use validated userId from socket
+        
+        if (!userId) {
+            console.error("Connection established without userId, disconnecting:", socket.id);
+            socket.disconnect(true);
+            return;
+        }
+
+        console.log("New client connected:", socket.id, "userId:", userId);
+
+        onlineUsers.set(userId, { socketId: socket.id, lastSeen: new Date() });
+        io.emit("update-online-users", Array.from(onlineUsers.keys()));
+
+        // Check if user has an active session in DB
+        try {
+            const activeSession = await WorkSession.findOne({
+                user: userId,
+                status: "active"
+            });
+
+            if (activeSession) {
+                const checkpointTimer = scheduleCheckpoint(io, socket, userId);
+                activeWorkSessions.set(userId, {
+                    startTime: activeSession.startTime,
+                    checkpointTimer,
+                    failureTimer: null
+                });
+                socket.emit("work-status", { isWorking: true, startTime: activeSession.startTime });
+                io.emit("user-work-update", { userId, isWorking: true, startTime: activeSession.startTime });
+            }
+        } catch (err) {
+            console.error("Error fetching active session:", err);
         }
 
         socket.on("start-work", async (data) => {
+            const userId = socket.userId;
+            
+            if (!userId) {
+                console.error("Start work failed: userId missing for socket", socket.id);
+                socket.emit("error", { message: "Authentication required" });
+                return;
+            }
+
             try {
                 // Close any existing active sessions first to avoid duplicates
                 await WorkSession.updateMany(
@@ -154,10 +199,26 @@ export const socketHandler = (io) => {
         });
 
         socket.on("stop-work", async () => {
+            const userId = socket.userId;
+            
+            if (!userId) {
+                console.error("Stop work failed: userId missing for socket", socket.id);
+                socket.emit("error", { message: "Authentication required" });
+                return;
+            }
+
             await stopWorkSession(io, socket, userId);
         });
 
         socket.on("verify-checkpoint", async (data) => {
+            const userId = socket.userId;
+            
+            if (!userId) {
+                console.error("Verify checkpoint failed: userId missing for socket", socket.id);
+                socket.emit("checkpoint-error", { message: "Authentication required" });
+                return;
+            }
+
             try {
                 const { otp } = data;
                 const user = await User.findById(userId).select("+twoFASecret");
@@ -207,11 +268,12 @@ export const socketHandler = (io) => {
         });
 
         socket.on("disconnect", () => {
+            const userId = socket.userId;
             if (userId) {
                 onlineUsers.delete(userId);
                 io.emit("update-online-users", Array.from(onlineUsers.keys()));
             }
-            console.log("Client disconnected:", socket.id);
+            console.log("Client disconnected:", socket.id, userId ? `userId: ${userId}` : "");
         });
     });
 };

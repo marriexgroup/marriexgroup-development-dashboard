@@ -19,19 +19,38 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     >(new Map());
 
     useEffect(() => {
-        if (user) {
+        if (user && user._id) {
             const newSocket = io(import.meta.env.VITE_SOCKET_URL || "http://localhost:5000", {
                 query: { userId: user._id },
-                //     transports: ["websocket", "polling"],
-                //     withCredentials: true,
-                // });
-
-                // newSocket.on("connect_error", (err) => {
-                //     console.error("Socket connection error:", err.message);
+                transports: ["polling", "websocket"],
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
             });
 
-            setSocket(newSocket);
+            // Connection event handlers
+            newSocket.on("connect", () => {
+                console.log("Socket connected:", newSocket.id);
+            });
 
+            newSocket.on("connect_error", (error) => {
+                console.error("Socket connection error:", error.message);
+                // Connection will automatically retry based on reconnection settings
+            });
+
+            newSocket.on("disconnect", (reason) => {
+                console.log("Socket disconnected:", reason);
+                if (reason === "io server disconnect") {
+                    // Server disconnected the socket, manually reconnect
+                    newSocket.connect();
+                }
+            });
+
+            newSocket.on("error", (error) => {
+                console.error("Socket error:", error);
+            });
+
+            // Application event handlers
             newSocket.on("update-online-users", (users: string[]) => {
                 setOnlineUsers(users);
             });
@@ -44,7 +63,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                 });
             });
 
+            setSocket(newSocket);
+
             return () => {
+                newSocket.removeAllListeners();
                 newSocket.close();
             };
         } else {
