@@ -24,8 +24,16 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                 query: { userId: user._id },
                 transports: ["polling", "websocket"],
                 reconnection: true,
-                reconnectionAttempts: 5,
+                reconnectionAttempts: 10,
                 reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                timeout: 20000,
+                forceNew: false,
+                // Better handling for serverless environments
+                upgrade: true,
+                rememberUpgrade: false,
+                // Add auth token if available
+                auth: {},
             });
 
             // Connection event handlers
@@ -34,15 +42,33 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             });
 
             newSocket.on("connect_error", (error) => {
-                console.error("Socket connection error:", error.message);
+                console.error("Socket connection error:", {
+                    message: error.message,
+                    type: error.type,
+                    description: error.description,
+                    context: error.context
+                });
                 // Connection will automatically retry based on reconnection settings
             });
 
             newSocket.on("disconnect", (reason) => {
-                console.log("Socket disconnected:", reason);
+                console.log("Socket disconnected:", {
+                    reason: reason,
+                    socketId: newSocket.id,
+                    connected: newSocket.connected
+                });
+                
+                // Handle different disconnect reasons
                 if (reason === "io server disconnect") {
                     // Server disconnected the socket, manually reconnect
+                    console.log("Server disconnected socket, attempting reconnect...");
                     newSocket.connect();
+                } else if (reason === "transport close" || reason === "transport error") {
+                    // Transport error, will auto-reconnect
+                    console.log("Transport error, will auto-reconnect...");
+                } else if (reason === "ping timeout") {
+                    // Connection timeout, will auto-reconnect
+                    console.log("Connection timeout, will auto-reconnect...");
                 }
             });
 

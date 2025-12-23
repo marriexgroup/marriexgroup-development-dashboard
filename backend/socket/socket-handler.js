@@ -89,33 +89,49 @@ const scheduleCheckpoint = (io, socket, userId) => {
 
 export const socketHandler = (io) => {
     io.use(async (socket, next) => {
-        // Validate userId during handshake
-        const userId = socket.handshake.query.userId;
-        
-        if (!userId) {
-            console.error("Socket connection rejected: userId missing");
-            return next(new Error("userId is required"));
-        }
-
-        // Validate userId is a valid MongoDB ObjectId
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
-            console.error("Socket connection rejected: invalid userId format", userId);
-            return next(new Error("Invalid userId format"));
-        }
-
-        // Verify user exists in database
         try {
+            // Validate userId during handshake
+            const userId = socket.handshake.query.userId;
+            
+            if (!userId) {
+                console.error("Socket connection rejected: userId missing", {
+                    socketId: socket.id,
+                    query: socket.handshake.query,
+                    headers: socket.handshake.headers
+                });
+                return next(new Error("userId is required"));
+            }
+
+            // Validate userId is a valid MongoDB ObjectId
+            if (!mongoose.Types.ObjectId.isValid(userId)) {
+                console.error("Socket connection rejected: invalid userId format", {
+                    userId,
+                    socketId: socket.id
+                });
+                return next(new Error("Invalid userId format"));
+            }
+
+            // Verify user exists in database
             const user = await User.findById(userId);
             if (!user) {
-                console.error("Socket connection rejected: user not found", userId);
+                console.error("Socket connection rejected: user not found", {
+                    userId,
+                    socketId: socket.id
+                });
                 return next(new Error("User not found"));
             }
             
             // Store userId on socket for later use
             socket.userId = userId;
+            console.log("Socket middleware passed for userId:", userId, "socketId:", socket.id);
             next();
         } catch (error) {
-            console.error("Socket connection error:", error);
+            console.error("Socket middleware error:", {
+                error: error.message,
+                stack: error.stack,
+                socketId: socket.id,
+                query: socket.handshake.query
+            });
             return next(new Error("Authentication failed"));
         }
     });
@@ -124,12 +140,20 @@ export const socketHandler = (io) => {
         const userId = socket.userId; // Use validated userId from socket
         
         if (!userId) {
-            console.error("Connection established without userId, disconnecting:", socket.id);
+            console.error("Connection established without userId, disconnecting:", {
+                socketId: socket.id,
+                handshake: socket.handshake.query
+            });
             socket.disconnect(true);
             return;
         }
 
-        console.log("New client connected:", socket.id, "userId:", userId);
+        console.log("New client connected:", {
+            socketId: socket.id,
+            userId: userId,
+            transport: socket.conn.transport.name,
+            remoteAddress: socket.handshake.address
+        });
 
         onlineUsers.set(userId, { socketId: socket.id, lastSeen: new Date() });
         io.emit("update-online-users", Array.from(onlineUsers.keys()));
@@ -267,13 +291,29 @@ export const socketHandler = (io) => {
             }
         });
 
-        socket.on("disconnect", () => {
+        socket.on("disconnect", (reason) => {
             const userId = socket.userId;
+            console.log("Client disconnected:", {
+                socketId: socket.id,
+                userId: userId || "unknown",
+                reason: reason,
+                transport: socket.conn?.transport?.name || "unknown"
+            });
+            
             if (userId) {
                 onlineUsers.delete(userId);
                 io.emit("update-online-users", Array.from(onlineUsers.keys()));
             }
-            console.log("Client disconnected:", socket.id, userId ? `userId: ${userId}` : "");
+        });
+
+        // Handle connection errors
+        socket.on("error", (error) => {
+            console.error("Socket error:", {
+                socketId: socket.id,
+                userId: socket.userId,
+                error: error.message,
+                stack: error.stack
+            });
         });
     });
 };

@@ -21,13 +21,22 @@ const io = new Server(server, {
       process.env.FRONTEND_URL,
       "http://localhost:5173",
       "http://localhost:3000",
-      "https://pro-dashbord-developers.marriexgroup.com"
+      "https://pro-dashbord-developers.marriexgroup.com",
+      "https://marriexgroup-development-dashboard-chi.vercel.app",
+      /^https:\/\/.*\.vercel\.app$/, // Allow all Vercel preview deployments
     ].filter(Boolean),
     methods: ["GET", "POST"],
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
   },
   pingTimeout: 60000,
   pingInterval: 25000,
+  allowEIO3: true, // Support older Socket.IO clients
+  transports: ["polling", "websocket"], // Explicitly allow both transports
+  allowUpgrades: true,
+  // Better handling for serverless environments
+  connectTimeout: 45000,
+  upgradeTimeout: 10000,
 });
 
 socketHandler(io);
